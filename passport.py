@@ -1,8 +1,9 @@
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import pyocr
 import pyocr.builders
 import cv2
-import numpy as np
+
 
 # 目标图
 sample_img_path = "sample.jpg"
@@ -10,20 +11,18 @@ sample_edited_img_path = "sample_edited.png"
 sample_sign_img_path = "sample_sign.png"
 pyocr.tesseract.TESSERACT_CMD = "E:/Program Files/Tesseract-OCR/tesseract.exe"
 
+
 def get_original_img(path, mode):
     img = cv2.imread(path, mode)
     # 调整图像大小以便于处理
-    img = cv2.resize(img, ( 600,420))
+    img = cv2.resize(img, (600, 420))
     return img
 
 
-def ocr_by_key(key):
+def ocr_by_key(img, key):
     # ツール取得
     tools = pyocr.get_available_tools()
     tool = tools[0]
-
-    # グレースケールでイメージを読み込み
-    img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
 
     # OCR
     builder = None
@@ -47,7 +46,7 @@ def render_doc_text(file_path):
     return img_adaptive
 
 
-# 识别后数据记录
+# 标记识别结果，并显示图片
 def rect_set(img, data_list):
     for data in data_list:
         rect = data.position
@@ -82,14 +81,16 @@ def rect_set(img, data_list):
     # 将图像从Pillow格式转换为OpenCV格式
     img_cv = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
 
-    cv2.imshow("img with rectangles", img_cv)
-    cv2.waitKey(0)
+    return img_cv
 
 
 # 获取前两位最长的文字列的位置，返回他们的矩阵
 def get_foot_area():
+
+    img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
+
     # OCR検知
-    data_list = ocr_by_key("line")
+    data_list = ocr_by_key(img, "line")
 
     text_arr = np.array([data.content for data in data_list])
 
@@ -115,8 +116,10 @@ def get_foot_area():
 def get_right_area():
     x, y = -1, -1
 
+    img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
+
     # OCR検知
-    data_list = ocr_by_key("line")
+    data_list = ocr_by_key(img, "line")
 
     for data in data_list:
         rect = data.position
@@ -128,7 +131,7 @@ def get_right_area():
             break
 
     # OCR検知
-    data_list = ocr_by_key("word")
+    data_list = ocr_by_key(img, "word")
     find_passport = False
     for data in data_list:
         rect = data.position
@@ -163,22 +166,19 @@ def mask_fill_white(img, mask):
 
     # 将矩形内部区域与矩形外部区域合并
     result = cv2.add(img_bg, result)
-    
+
     return result
 
 
 # 只返回指定高度以内的区域（max，min）
-def remove_small_height_regions(max_height, min_height):
-    img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
-    # 二值化图像
-    _, binary = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY)
+def remove_small_height_regions(img, max_height, min_height):
 
     # 对输入图像取反
-    inverted_img = cv2.bitwise_not(binary)
+    inverted_img = cv2.bitwise_not(img)
     # 膨胀操作
-    kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 1))
+    kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 1))
     bin_clo = cv2.dilate(inverted_img, kernel2, iterations=2)
-    cv2.imshow("bin_clo", bin_clo)
+    cv2.imshow("Gaussian Thresholding", bin_clo)
     cv2.waitKey(0)
 
     # 获取所有连通区域的标签
@@ -202,12 +202,43 @@ def remove_small_height_regions(max_height, min_height):
     return mask
 
 
+# 固定色阶
+def color_scale_display(img, Shadow=0, Highlight=255, Midtones=1):
+    """
+    用于图像预处理，模拟ps的色阶调整
+    img：传入的图片
+    Shadow：黑场(0-Highlight)
+    Highlight：白场(Shadow-255)
+    Midtones：灰场(9.99-0.01)
+    0 <= Shadow < Highlight <= 255
+    返回一张图片
+    """
+    if Highlight > 255:
+        Highlight = 255
+    if Shadow < 0:
+        Shadow = 0
+    if Shadow >= Highlight:
+        Shadow = Highlight - 2
+    if Midtones > 9.99:
+        Midtones = 9.99
+    if Midtones < 0.01:
+        Midtones = 0.01
+    # 转类型
+    img = np.array(img, dtype=np.float16)
+    # 计算白场黑场离差
+    Diff = Highlight - Shadow
+    img = img - Shadow
+    img[img < 0] = 0
+    img = (img / Diff) ** (1 / Midtones) * 255
+    img[img > 255] = 255
+    # 转类型
+    img = np.array(img, dtype=np.uint8)
+    return img
+
 # 图片二值化，把白色部分设置为透明
 def binary_img_with_transparency(img, threshold=180):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
-    cv2.imshow("Result", thresh)
-    cv2.waitKey(0)
+    thresh = color_scale_display(gray, 112, 217, 0.97)
 
     # 将二值化后的图像转换为4通道图像
     rgba = cv2.cvtColor(thresh, cv2.COLOR_GRAY2RGBA)
@@ -215,7 +246,6 @@ def binary_img_with_transparency(img, threshold=180):
     # 将白色部分设置为透明
     rgba[:, :, 3] = np.where(thresh == 255, 0, 255)
     return rgba
-
 
 # 裁切不需要的部分,返回处理后的
 def get_main_area():
@@ -233,7 +263,7 @@ def get_main_area():
 
     # 获取签名切片操作
     img = get_original_img(sample_img_path, cv2.IMREAD_COLOR)
-    # ((y1,y2),(x1,x2))
+    # ((y1,y2),(x1,x2)) 识别到的签名范围
     sign_rect = (
         (
             right_point[1] + int((foot_area[0][1] - right_point[1]) * 0.6),
@@ -251,8 +281,8 @@ def get_main_area():
 
     # グレースケールでイメージを読み込み
     img = get_original_img(sample_img_path, cv2.IMREAD_GRAYSCALE)
-    ret, img = cv2.threshold(img, 150, 250, cv2.THRESH_BINARY)
-    
+    img = color_scale_display(img, 112, 217, 0.97)
+
     # 读取原始图像和矩形遮罩
     mask = np.zeros(img.shape[:2], dtype=np.uint8)
 
@@ -263,28 +293,61 @@ def get_main_area():
 
     # 遮罩外涂白
     img = mask_fill_white(img, mask)
-    cv2.imwrite(sample_edited_img_path, img)
 
     # 只返回指定高度以内的区域（max，min）
-    mask = remove_small_height_regions(15, 10)
+    img_mask = get_original_img(sample_img_path, cv2.IMREAD_GRAYSCALE)
+    # 二值化图像
+    _, img_mask = cv2.threshold(img_mask, 150, 255, cv2.THRESH_BINARY)
+    mask = remove_small_height_regions(img_mask, 15, 10)
 
     # 遮罩外涂白
-    img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
     img = mask_fill_white(img, mask)
 
-    #签名区域内涂白
-    cv2.rectangle(img, (sign_rect[1][0],sign_rect[0][0]),(sign_rect[1][1],sign_rect[0][1]), 255, -1)
+    # 签名区域内涂白
+    cv2.rectangle(
+        img,
+        (sign_rect[1][0], sign_rect[0][0]),
+        (sign_rect[1][1], sign_rect[0][1]),
+        255,
+        -1,
+    )
     cv2.imwrite(sample_edited_img_path, img)
-
-    data_list = ocr_by_key("word")
-
-    return data_list
 
 
 if __name__ == "__main__":
     # 裁切不需要的部分,返回处理后的
-    data_list = get_main_area()
-    img = cv2.imread(sample_edited_img_path)
+    get_main_area()
 
-    # 显示绘制好矩形的图片
-    rect_set(img, data_list)
+    # 读取图像处理后的图片
+    img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
+
+    # OCR
+    data_list = ocr_by_key(img, "line")
+
+    # 标记识别结果，并显示图片
+    img = cv2.imread(sample_edited_img_path, cv2.IMREAD_COLOR)
+    
+    img_cv = rect_set(img, data_list)
+
+    img_sign = cv2.imread(sample_sign_img_path, cv2.IMREAD_COLOR)
+    cv2.imshow("img_sign", img_sign)
+
+    img_sample = cv2.imread(sample_img_path, cv2.IMREAD_COLOR)
+
+    # 获取图像大小
+    h, w, c = img_cv.shape
+
+    # 调整图像大小
+    img_sample = cv2.resize(img_sample, (w, h))
+
+    # 水平拼接图像
+    h_concat = np.concatenate((img_sample, img_cv), axis=1)
+
+    # 显示拼接后的图像
+    cv2.imshow('Horizontal Concatenation', h_concat)
+
+    # 等待按键输入
+    cv2.waitKey(0)
+
+    # 关闭窗口
+    cv2.destroyAllWindows()
