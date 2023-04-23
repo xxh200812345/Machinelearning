@@ -3,7 +3,7 @@ from PIL import Image, ImageDraw, ImageFont
 import pyocr
 import pyocr.builders
 import cv2
-
+import string
 
 # 目标图
 sample_img_path = "sample.jpg"
@@ -30,6 +30,10 @@ def ocr_by_key(img, key):
         builder = pyocr.builders.LineBoxBuilder(tesseract_layout=6)
     else:
         builder = pyocr.builders.WordBoxBuilder(tesseract_layout=6)
+
+    # chars = string.ascii_uppercase + string.digits + "<"
+    # builder.tesseract_configs.append('-c')
+    # builder.tesseract_configs.append(f'tessedit_char_whitelist {chars}')  # Only recognize digits
 
     return tool.image_to_string(Image.fromarray(img), lang="eng", builder=builder)
 

@@ -12,14 +12,15 @@ font_name = "OCRB.ttf"
 subimgs_path = "cut_imgs/"
 
 # 生成大写英文字母和数字的字符集
-chars = string.ascii_uppercase + string.digits + "<"
+chars = string.digits
+#chars = string.ascii_uppercase + string.digits + "<"
 
 # 设置字体大小和位置
 font_size = 16
 x = 5
 y = 5
 
-for i in range(30):
+for i in range(20):
     # 生成随机字符串
     k_random = random.randint(4, 8)
     random_string = "".join(random.choices(chars, k=k_random))
