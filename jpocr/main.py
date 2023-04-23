@@ -322,7 +322,7 @@ if __name__ == "__main__":
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
 
     # OCR
-    data_list = ocr_by_key(img, "line")
+    data_list = ocr_by_key(img, "word")
 
     # 标记识别结果，并显示图片
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_COLOR)
