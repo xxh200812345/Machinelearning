@@ -4,12 +4,20 @@ import pyocr
 import pyocr.builders
 import cv2
 import string
+import platform
 
 # 目标图
 sample_img_path = "sample.jpg"
 sample_edited_img_path = "sample_edited.png"
 sample_sign_img_path = "sample_sign.png"
+
+# 获取操作系统名称及版本号
+os = platform.system()
 pyocr.tesseract.TESSERACT_CMD = "E:/Program Files/Tesseract-OCR/tesseract.exe"
+
+# 判断当前操作系统
+if os == "Darwin":
+    pyocr.tesseract.TESSERACT_CMD = "/opt/homebrew/Cellar/tesseract/5.3.1/bin/tesseract"
 
 
 def get_original_img(path, mode):
@@ -21,21 +29,31 @@ def get_original_img(path, mode):
 
 def ocr_by_key(img, key):
     # ツール取得
-    tools = pyocr.get_available_tools()
-    tool = tools[0]
+    tool = pyocr.get_available_tools()[0]
 
     # OCR
     builder = None
+    digits = None
+
     if key == "line":
         builder = pyocr.builders.LineBoxBuilder(tesseract_layout=6)
-    else:
+
+    elif key == "digits":
+        # chars = string.ascii_uppercase + string.digits + "<"
+        # digits_config = (
+        #     f"--psm 6 tessedit_char_whitelist {chars}"  # Only recognize digits
+        # )
+        builder = pyocr.builders.DigitLineBoxBuilder(tesseract_layout=6)
+
+    elif key == "word":
         builder = pyocr.builders.WordBoxBuilder(tesseract_layout=6)
 
-    # chars = string.ascii_uppercase + string.digits + "<"
-    # builder.tesseract_configs.append('-c')
-    # builder.tesseract_configs.append(f'tessedit_char_whitelist {chars}')  # Only recognize digits
+    else:
+        print("key is error.")
 
-    return tool.image_to_string(Image.fromarray(img), lang="eng", builder=builder)
+    digits = tool.image_to_string(Image.fromarray(img), lang="num_1", builder=builder)
+
+    return digits
 
 
 # 異なる背景除去
@@ -72,7 +90,7 @@ def rect_set(img, data_list):
         # 定义要绘制的文本和位置
         text = data.content
         # 定义文本样式
-        font_path = "H:/vswork/AI/jpocr/NotoSansJP-Thin.otf"
+        font_path = "NotoSansJP-Thin.otf"
         font_size = 16
         font_color = (0, 0, 255)
 
@@ -90,7 +108,6 @@ def rect_set(img, data_list):
 
 # 获取前两位最长的文字列的位置，返回他们的矩阵
 def get_foot_area():
-
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
 
     # OCR検知
@@ -104,14 +121,32 @@ def get_foot_area():
     # 找出最长的3个文字列
     longest_idx = text_lens.argsort()[-2:][::-1]
 
+    x_array = [
+        data_list[longest_idx[0]].position[0][0],
+        data_list[longest_idx[0]].position[1][0],
+        data_list[longest_idx[1]].position[0][0],
+        data_list[longest_idx[1]].position[1][0],
+    ]
+    y_array = [
+        data_list[longest_idx[0]].position[0][1],
+        data_list[longest_idx[0]].position[1][1],
+        data_list[longest_idx[1]].position[0][1],
+        data_list[longest_idx[1]].position[1][1],
+    ]
+
+    x1 = min(x_array)
+    x2 = max(x_array)
+    y1 = min(y_array)
+    y2 = max(y_array)
+
     return (
         (
-            data_list[longest_idx[0]].position[0][0] - 2,
-            data_list[longest_idx[0]].position[0][1] - 2,
+            x1 - 2,
+            y1 - 2,
         ),
         (
-            data_list[longest_idx[1]].position[1][0] + 2,
-            data_list[longest_idx[1]].position[1][1] + 2,
+            x2 + 2,
+            y2 + 2,
         ),
     )
 
@@ -123,18 +158,6 @@ def get_right_area():
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
 
     # OCR検知
-    data_list = ocr_by_key(img, "line")
-
-    for data in data_list:
-        rect = data.position
-        # 定义要绘制的文本和位置
-        text = data.content
-
-        if ("p" in text or "P" in text) and "PASSPORT" in text:
-            y = rect[0][1] - 2
-            break
-
-    # OCR検知
     data_list = ocr_by_key(img, "word")
     find_passport = False
     for data in data_list:
@@ -144,12 +167,13 @@ def get_right_area():
 
         if find_passport:
             x = rect[0][0] - 2
+            y = rect[0][1] - 2
             break
 
         if "PASSPORT" == text:
             find_passport = True
 
-    return (x, y)
+    return (x, y-8)
 
 
 def mask_fill_white(img, mask):
@@ -174,16 +198,20 @@ def mask_fill_white(img, mask):
     return result
 
 
+def _imshow(title, img):
+    cv2.imshow(title, img)
+    cv2.waitKey(0)  # 等待用户按下键盘上的任意键
+    cv2.destroyAllWindows()  # 关闭所有cv2.imshow窗口
+
+
 # 只返回指定高度以内的区域（max，min）
 def remove_small_height_regions(img, max_height, min_height):
-
     # 对输入图像取反
     inverted_img = cv2.bitwise_not(img)
     # 膨胀操作
     kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 1))
     bin_clo = cv2.dilate(inverted_img, kernel2, iterations=2)
-    cv2.imshow("Gaussian Thresholding", bin_clo)
-    cv2.waitKey(0)
+    #_imshow("Gaussian Thresholding", bin_clo)
 
     # 获取所有连通区域的标签
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
@@ -239,6 +267,7 @@ def color_scale_display(img, Shadow=0, Highlight=255, Midtones=1):
     img = np.array(img, dtype=np.uint8)
     return img
 
+
 # 图片二值化，把白色部分设置为透明
 def binary_img_with_transparency(img, threshold=180):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -251,6 +280,7 @@ def binary_img_with_transparency(img, threshold=180):
     rgba[:, :, 3] = np.where(thresh == 255, 0, 255)
     return rgba
 
+
 # 裁切不需要的部分,返回处理后的
 def get_main_area():
     # 異なる背景除去
@@ -259,11 +289,14 @@ def get_main_area():
 
     # 获取前两位最长的文字列的位置，返回他们的矩阵 ((x1,y1),(x2,y2))
     foot_area = get_foot_area()
-    # print(f"foot_area: {foot_area}")
+    print(f"foot_area: {foot_area}")
+    # cv2.rectangle(img, foot_area[0], foot_area[1], (0, 0, 255), 2)
+    # _imshow("test", img)
+    # exit()
 
     # 获取右侧区域的右上角坐标 (x,y)
     right_point = get_right_area()
-    # print(f"right_point: {right_point}")
+    print(f"right_point: {right_point}")
 
     # 获取签名切片操作
     img = get_original_img(sample_img_path, cv2.IMREAD_COLOR)
@@ -326,15 +359,15 @@ if __name__ == "__main__":
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
 
     # OCR
-    data_list = ocr_by_key(img, "word")
+    data_list = ocr_by_key(img, "digits")
 
     # 标记识别结果，并显示图片
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_COLOR)
-    
+
     img_cv = rect_set(img, data_list)
 
     img_sign = cv2.imread(sample_sign_img_path, cv2.IMREAD_COLOR)
-    cv2.imshow("img_sign", img_sign)
+    _imshow("img_sign", img_sign)
 
     img_sample = cv2.imread(sample_img_path, cv2.IMREAD_COLOR)
 
@@ -348,10 +381,4 @@ if __name__ == "__main__":
     h_concat = np.concatenate((img_sample, img_cv), axis=1)
 
     # 显示拼接后的图像
-    cv2.imshow('Horizontal Concatenation', h_concat)
-
-    # 等待按键输入
-    cv2.waitKey(0)
-
-    # 关闭窗口
-    cv2.destroyAllWindows()
+    _imshow("Horizontal Concatenation", h_concat)
