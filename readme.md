@@ -1,4 +1,4 @@
-# windows部署手册
+# 护照windows部署手册
 
 ## 安装tessract
 https://www.jianshu.com/p/f7cb0b3f337a
