@@ -387,7 +387,7 @@ def init(passport: Passport):
 
 # 识别后数据输出到文本文件中
 def output_data2text_file(passport: Passport, data_list):
-    output_data_file = config_options["OUTPUT_DATA_FILE"]
+    output_data_file = config_options["OUTPUT_FOLDER_PATH"]+"/data.txt"
 
     # 打开文件，将文件指针移动到文件的末尾
     with open(output_data_file, "a") as f:

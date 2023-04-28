@@ -14,7 +14,7 @@ def config_readin():
     global config_options
 
     config = configparser.ConfigParser()
-    config.read('ocr_configs.ini')
+    config.read('ocr_configs.ini',encoding='utf-8')
 
     # 获取整个配置文件的所有 section
     sections = config.sections()
@@ -45,7 +45,8 @@ if __name__ == "__main__":
     passport_imgs_dir = config_options["PASSPORT_IMAGES_FOLDER_PATH"]
 
     # 清空输出数据文件
-    output_data_file = config_options["OUTPUT_DATA_FILE"]
+    output_data_file = config_options["OUTPUT_FOLDER_PATH"]+"/data.txt"
+
     # 打开文件，将文件指针移动到文件的开头
     with open(output_data_file, "w") as f:
         f.truncate(0)  # 清空文件内容
