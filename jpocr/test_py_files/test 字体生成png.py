@@ -2,6 +2,7 @@ import random
 from PIL import Image, ImageDraw, ImageFont
 import string
 from collections import Counter
+import datetime
 
 # 设置图片大小和背景颜色
 image_width = 13
@@ -9,11 +10,12 @@ image_height = 35
 background_color = (255, 255, 255)
 
 # 获取字体文件列表
-font_name = "OCRB.ttf"
-subimgs_path = "cut_imgs/"
+font_name = "res/OCRB.ttf"
+subimgs_path = "res/cut_imgs/"
 
 # 生成大写英文字母和数字的字符集
-chars = string.ascii_uppercase + string.ascii_lowercase + string.digits + "><"
+#chars = string.ascii_uppercase + string.ascii_lowercase + string.digits + "><"
+chars = "NHPFO0"
 
 # 设置字体大小和位置
 font_size = 16
@@ -51,7 +53,12 @@ def count_chars(strings):
 
 
 if __name__ == "__main__":
-    result = generate_strings(50, 12, 13, chars)
+    result = generate_strings(10, 4, 5, chars)
+
+    now = datetime.datetime.now()
+
+    #time
+    mtime=now.strftime("%Y%m%d%H%M%S")
 
     #统计字符串数组中，各字符出现的频率
     # char_count = count_chars(result)
@@ -75,4 +82,4 @@ if __name__ == "__main__":
         print(result[i])
 
         # 保存图片
-        image.save(f"{subimgs_path}rt_{str(i).zfill(3)}.png")
+        image.save(f"{subimgs_path}rt_{mtime}_{str(i).zfill(3)}_{result[i]}.png")

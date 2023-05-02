@@ -22,6 +22,9 @@ debug_mode = False
 # 配置文件数据组
 config_options = set()
 
+# 字体高度
+font_height=15
+
 
 # 设置tessract入口程序安装位置
 def set_tessract_app():
@@ -70,16 +73,27 @@ def ocr_by_key(img, key):
     return digits
 
 
-# 異なる背景除去
+# 去除边沿像素
 def render_doc_text(file_path):
     # グレースケールでイメージを読み込み
-    img_generated = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
-    print("img shape", img_generated.shape)
+    img = get_original_img(sample_img_path, cv2.IMREAD_GRAYSCALE)
+    img = color_scale_display(img, 112, 217, 0.97)
+    print("img shape", img.shape)
 
-    # 異なる背景除去
-    ret, img_adaptive = cv2.threshold(img_generated, 200, 255, cv2.THRESH_BINARY)
+    # 去除边沿像素
+    # 获取图像尺寸
+    height, width = img.shape
 
-    return img_adaptive
+    # 计算矩形的位置和大小
+    x = 0
+    y = 0
+    rect_width = width
+    rect_height = height 
+
+    # 绘制矩形
+    cv2.rectangle(img, (x, y), (x + rect_width, y + rect_height), (255, 255, 255), 20)
+
+    return img
 
 
 # 标记识别结果，并显示图片
@@ -132,8 +146,12 @@ def get_foot_area():
     # 求出每个文字列的长度
     text_lens = np.array([len(text) for text in text_arr])
 
-    # 找出最长的3个文字列
-    longest_idx = text_lens.argsort()[-2:][::-1]
+    # 找出最长的4个文字列
+    longest_temp_idx = text_lens.argsort()[-4:][::-1]
+    longest_idx=[]
+    for idx in range(4):
+        if(abs(len(data_list[longest_temp_idx[idx]].content)  - 44) <= 3):
+            longest_idx.append(longest_temp_idx[idx])
 
     x_array = [
         data_list[longest_idx[0]].position[0][0],
@@ -305,13 +323,15 @@ def get_main_area():
     # 获取前两位最长的文字列的位置，返回他们的矩阵 ((x1,y1),(x2,y2))
     foot_area = get_foot_area()
     print(f"foot_area: {foot_area}")
-    # cv2.rectangle(img, foot_area[0], foot_area[1], (0, 0, 255), 2)
-    # _imshow("test", img)
-    # exit()
 
     # 获取右侧区域的右上角坐标 (x,y)
     right_point = get_right_area()
     print(f"right_point: {right_point}")
+
+    # cv2.rectangle(img, foot_area[0], foot_area[1], (0, 0, 255), 2)
+    # cv2.circle(img, right_point, 5, (0, 0, 255), -1)
+    # _imshow("test", img)
+    # exit()
 
     # 获取签名切片操作
     img = get_original_img(sample_img_path, cv2.IMREAD_COLOR)
@@ -382,7 +402,7 @@ def init(passport: Passport):
     set_tessract_app()
 
     # 是否进入调试模式
-    debug_mode = config_options["DEBUG"]
+    debug_mode = bool(config_options["DEBUG"])
 
 
 # 识别后数据输出到文本文件中

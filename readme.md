@@ -87,3 +87,8 @@ https://www.jianshu.com/p/f7cb0b3f337a
 
 ### 输出结果以及说明
 参考 `jpocr\output\`
+
+## 训练
+
+1. 打包图片成字库 `num_1.font.exp0.tif`
+1. 生成box。`tesseract num_1.font.exp0.tif num_1.font.exp0 –l eng batch.nochop makebox`
