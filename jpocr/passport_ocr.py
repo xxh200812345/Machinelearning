@@ -150,8 +150,15 @@ def get_foot_area():
     longest_temp_idx = text_lens.argsort()[-4:][::-1]
     longest_idx=[]
     for idx in range(4):
-        if(abs(len(data_list[longest_temp_idx[idx]].content)  - 44) <= 3):
+        if('TR' in data_list[longest_temp_idx[idx]].content
+           or 'JPN' in data_list[longest_temp_idx[idx]].content):
             longest_idx.append(longest_temp_idx[idx])
+
+    if(debug_mode):
+        print(data_list[longest_temp_idx[0]].content)
+        print(data_list[longest_temp_idx[1]].content)
+        print(data_list[longest_temp_idx[2]].content)
+        print(data_list[longest_temp_idx[3]].content)
 
     x_array = [
         data_list[longest_idx[0]].position[0][0],

@@ -92,3 +92,26 @@ https://www.jianshu.com/p/f7cb0b3f337a
 
 1. 打包图片成字库 `num_1.font.exp0.tif`
 1. 生成box。`tesseract num_1.font.exp0.tif num_1.font.exp0 –l eng batch.nochop makebox`
+
+训练命令
+
+    echo "font 0 0 0 0 0">font_properties
+    tesseract num_1.font.exp0.tif num_1.font.exp0 nobatch box.train
+    unicharset_extractor num_1.font.exp0.box
+    mftraining -F font_properties -U unicharset -O num_1.unicharset num_1.font.exp0.tr
+    cntraining num_1.font.exp0.tr
+
+    mv inttemp num_1.inttemp
+    mv pffmtable num_1.pffmtable
+    mv normproto num_1.normproto
+    mv shapetable num_1.shapetable
+
+    combine_tessdata num_1.
+
+### Tesseract-OCR 5.0LSTM训练流程
+https://www.cnblogs.com/nayitian/p/15240143.html
+
+tesseract num_1.font.exp0.tif num_1.font.exp0.box --psm 6 lstm.train
+combine_tessdata -e eng.traineddata eng.lstm
+lstmtraining --model_output="output" --continue_from="eng.lstm" --train_listfile="num.training_files" --traineddata="eng.traineddata" --debug_interval -1 --max_iterations 800
+lstmtraining --stop_training --continue_from="output_checkpoint" --traineddata="eng.traineddata" --model_output="num_1.traineddata"

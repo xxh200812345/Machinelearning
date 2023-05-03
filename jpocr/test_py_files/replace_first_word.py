@@ -1,6 +1,6 @@
-f1='res/out_train_d/num_1.font.exp0.box'
-f2='res/out_train_d/random_str_data'
-shift_num=50
+f1='res/allforone copy/num_1.font.exp0.box'
+f2='res/allforone copy/random_str_data'
+shift_num=0
 
 with open(f1, 'r', encoding='utf-8') as file1, open(f2, 'r', encoding='utf-8') as file2:
     lines1 = file1.readlines()
@@ -8,6 +8,8 @@ with open(f1, 'r', encoding='utf-8') as file1, open(f2, 'r', encoding='utf-8') a
     letters = []
     for line in lines2:
         letters += list(line.strip())
+
+    print(f"lines1:{len(lines1)},lines2:{len(letters)}")
 
     with open('output.txt', 'w', encoding='utf-8') as output_file:
         for line1, line2 in zip(lines1, letters):

@@ -14,33 +14,30 @@ font_name = "res/OCRB.ttf"
 subimgs_path = "res/cut_imgs/"
 
 # 生成大写英文字母和数字的字符集
-#chars = string.ascii_uppercase + string.ascii_lowercase + string.digits + "><"
-chars = "NHPFO0"
+chars = string.ascii_uppercase + string.ascii_lowercase + string.digits + "><"
+#chars = "JPNFH"
 
 # 设置字体大小和位置
 font_size = 16
 x = 10
 y = 8
 
+#以下是一个Python函数，用于生成指定重复次数的字母表字符串，打乱顺序，然后把这个字符串分割成指定范围长度的字符串数组
+def generate_random_strings(count, min_len, max_len,alphabet):
+    # 生成指定重复次数的字母表字符串
+    str_list = list(alphabet * count)
+    random.shuffle(str_list)
+    random_string = "".join(str_list)
 
-# 为了使生成的字符串中字母的使用次数相对平均，我们可以先生成一个列表，其中每个字母出现的次数相等，然后将其分割成长度为 8 到 10 的子列表
-def generate_strings(n, min_len, max_len, chars):
-    alphabet = list(chars)
-    repeats = n * max_len // len(alphabet) + 1
-    extended_alphabet = alphabet * repeats
-    random.shuffle(extended_alphabet)
-
-    total_len = n * max_len
-    index = 0
+    # 将字符串分割成指定范围长度的字符串数组
     result = []
-    for _ in range(n):
-        length = random.randint(min_len, max_len)
-        if index + length > total_len:
-            length = total_len - index
-        current_alphabet = extended_alphabet[index : index + length]
-        random.shuffle(current_alphabet)
-        result.append("".join(current_alphabet))
-        index += length
+    start_index = 0
+    while start_index < len(random_string):
+        end_index = start_index + random.randint(min_len, max_len)
+        if end_index >= len(random_string):
+            end_index = len(random_string)
+        result.append(random_string[start_index:end_index])
+        start_index = end_index
 
     return result
 
@@ -53,7 +50,7 @@ def count_chars(strings):
 
 
 if __name__ == "__main__":
-    result = generate_strings(10, 4, 5, chars)
+    result = generate_random_strings(2, 15, 20, chars)
 
     now = datetime.datetime.now()
 
@@ -61,25 +58,31 @@ if __name__ == "__main__":
     mtime=now.strftime("%Y%m%d%H%M%S")
 
     #统计字符串数组中，各字符出现的频率
-    # char_count = count_chars(result)
+    char_count = count_chars(result)
 
-    # for char, count in char_count.items():
-    #     print(f"{char}: {count}")
+    for char, count in char_count.items():
+        print(f"{char}: {count}")
 
-    for i in range(len(result)):
+    with open(f"{subimgs_path}random_str_data", 'w') as output_file:
 
-        # 创建一个空白图片
-        image = Image.new(
-            "RGB", (image_width * len(result[i]) + 15, image_height), background_color
-        )
+        for i in range(len(result)):
 
-        # 加载字体文件并创建画笔
-        font = ImageFont.truetype(font_name, font_size)
-        draw = ImageDraw.Draw(image)
+            # 创建一个空白图片
+            image = Image.new(
+                "RGB", (image_width * len(result[i]) + 15, image_height), background_color
+            )
 
-        # 在图片上写入文字
-        draw.text((x, y), result[i], fill=(0, 0, 0), font=font)
-        print(result[i])
+            # 加载字体文件并创建画笔
+            font = ImageFont.truetype(font_name, font_size)
+            draw = ImageDraw.Draw(image)
 
-        # 保存图片
-        image.save(f"{subimgs_path}rt_{mtime}_{str(i).zfill(3)}_{result[i]}.png")
+            # 在图片上写入文字
+            draw.text((x, y), result[i], fill=(0, 0, 0), font=font)
+
+            # 保存图片
+            image.save(f"{subimgs_path}rt_{mtime}_{str(i).zfill(3)}_{result[i]}.png")
+            
+            output_file.write(result[i]+'\n')
+
+    
+
