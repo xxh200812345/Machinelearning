@@ -117,7 +117,7 @@ jpocr\output\
 ### Tesseract-OCR 5.0LSTM训练流程
 https://www.cnblogs.com/nayitian/p/15240143.html
 
-tesseract num_1.font.exp0.tif num_1.font.exp0.box --psm 6 lstm.train
-combine_tessdata -e eng.traineddata eng.lstm
-lstmtraining --model_output="output" --continue_from="eng.lstm" --train_listfile="num.training_files" --traineddata="eng.traineddata" --debug_interval -1 --max_iterations 800
-lstmtraining --stop_training --continue_from="output_checkpoint" --traineddata="eng.traineddata" --model_output="num_1.traineddata"
+    tesseract num_1.font.exp0.tif num_1.font.exp0.box --psm 6 lstm.train
+    combine_tessdata -e eng.traineddata eng.lstm
+    lstmtraining --model_output="output" --continue_from="eng.lstm" --train_listfile="num.training_files" --traineddata="eng.traineddata" --debug_interval -1 --max_iterations 800
+    lstmtraining --stop_training --continue_from="output_checkpoint" --traineddata="eng.traineddata" --model_output="num_1.traineddata"
