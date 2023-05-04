@@ -4,6 +4,7 @@ import pyocr
 import pyocr.builders
 import cv2
 import platform
+import os
 from passport import Passport
 from datetime import datetime
 
@@ -13,8 +14,8 @@ sample_edited_img_path = ""
 sample_sign_img_path = ""
 sample_tessract_img_path = ""
 
-# 目标数据
-data_file = ""
+# 文字信息拆分后数据文件夹
+text_imgs = ""
 
 # 调试
 debug_mode = False
@@ -23,7 +24,7 @@ debug_mode = False
 config_options = set()
 
 # 字体高度
-font_height=15
+font_height = 15
 
 
 # 设置tessract入口程序安装位置
@@ -88,7 +89,7 @@ def render_doc_text(file_path):
     x = 0
     y = 0
     rect_width = width
-    rect_height = height 
+    rect_height = height
 
     # 绘制矩形
     cv2.rectangle(img, (x, y), (x + rect_width, y + rect_height), (255, 255, 255), 20)
@@ -148,13 +149,15 @@ def get_foot_area():
 
     # 找出最长的4个文字列
     longest_temp_idx = text_lens.argsort()[-4:][::-1]
-    longest_idx=[]
+    longest_idx = []
     for idx in range(4):
-        if('TR' in data_list[longest_temp_idx[idx]].content
-           or 'JPN' in data_list[longest_temp_idx[idx]].content):
+        if (
+            "TR" in data_list[longest_temp_idx[idx]].content
+            or "JPN" in data_list[longest_temp_idx[idx]].content
+        ):
             longest_idx.append(longest_temp_idx[idx])
 
-    if(debug_mode):
+    if debug_mode:
         print(data_list[longest_temp_idx[0]].content)
         print(data_list[longest_temp_idx[1]].content)
         print(data_list[longest_temp_idx[2]].content)
@@ -395,7 +398,7 @@ def get_main_area():
 
 # 初始化设置
 def init(passport: Passport):
-    global sample_img_path, sample_edited_img_path, sample_sign_img_path, sample_tessract_img_path, debug_mode
+    global sample_img_path, sample_edited_img_path, sample_sign_img_path, sample_tessract_img_path, debug_mode, text_imgs
 
     input_dir = config_options["PASSPORT_IMAGES_FOLDER_PATH"]
     output_dir = config_options["OUTPUT_FOLDER_PATH"]
@@ -409,12 +412,21 @@ def init(passport: Passport):
     set_tessract_app()
 
     # 是否进入调试模式
-    debug_mode = bool(config_options["DEBUG"])
+    if config_options["DEBUG"].lower()=='true':
+        debug_mode = True
+    elif config_options["DEBUG"].lower()=='false':
+        debug_mode = False
+    else:
+        print("ocr_configs.ini Debug value is ERROR!")
+
+
+    # text_imgs
+    text_imgs = config_options["OUTPUT_FOLDER_PATH"] + "/text_imgs"
 
 
 # 识别后数据输出到文本文件中
 def output_data2text_file(passport: Passport, data_list):
-    output_data_file = config_options["OUTPUT_FOLDER_PATH"]+"/data.txt"
+    output_data_file = config_options["OUTPUT_FOLDER_PATH"] + "/data.txt"
 
     # 打开文件，将文件指针移动到文件的末尾
     with open(output_data_file, "a") as f:
@@ -427,6 +439,29 @@ def output_data2text_file(passport: Passport, data_list):
             f.write(text + "\n")  # 写入一行并换行
 
         f.write("\n")  # 换行
+
+
+# 分离图片上的文字
+def extract_text_from_image(img, data_list, passport):
+    # 定义边框宽度和颜色
+    border_width = 8
+    border_color = [255, 255, 255]  # 白色
+
+    # 遍历每个矩形，绘制在图片上
+    i=0
+    for data in data_list:
+        rect = data.position
+        x1, y1, x2, y2 = rect[0][0], rect[0][1], rect[1][0], rect[1][1]
+        # 定义要绘制的文本和位置
+        text = data.content
+
+        img_part = img[ y1-2: y2+2 ,x1-2: x2+2]
+        border_img = cv2.copyMakeBorder(img_part, border_width, border_width, border_width, border_width,
+                                cv2.BORDER_CONSTANT, value=border_color)
+
+        file_name=passport.file_name.split('.')[0]
+        cv2.imwrite(f"{text_imgs}/{file_name}_{str(i).zfill(3)}_{text}.png", border_img)
+        i+=1
 
 
 def run(passport: Passport, _config_options: dict):
@@ -445,6 +480,9 @@ def run(passport: Passport, _config_options: dict):
 
     # OCR
     data_list = ocr_by_key(img, "digits")
+
+    # 新建文字信息拆分后数据文件夹
+    extract_text_from_image(img, data_list, passport)
 
     # 标记识别结果，并显示图片
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_COLOR)
@@ -469,6 +507,6 @@ def run(passport: Passport, _config_options: dict):
     # 显示拼接后的图像
     _imshow("Horizontal Concatenation", h_concat)
 
-
     # 识别后数据输出到文本文件中
     output_data2text_file(passport, data_list)
+
