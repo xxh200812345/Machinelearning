@@ -7,6 +7,7 @@ import platform
 import os
 from passport import Passport
 from datetime import datetime
+import json
 
 # 目标图
 sample_img_path = ""
@@ -55,16 +56,11 @@ def ocr_by_key(img, key):
 
     if key == "line":
         builder = pyocr.builders.LineBoxBuilder(tesseract_layout=6)
-
-    elif key == "digits":
-        # chars = string.ascii_uppercase + string.digits + "<"
-        # digits_config = (
-        #     f"--psm 6 tessedit_char_whitelist {chars}"  # Only recognize digits
-        # )
-        builder = pyocr.builders.DigitLineBoxBuilder(tesseract_layout=6)
+        builder.tesseract_configs.append("_my_word")
 
     elif key == "word":
         builder = pyocr.builders.WordBoxBuilder(tesseract_layout=6)
+        builder.tesseract_configs.append("_my_word")
 
     else:
         print("key is error.")
@@ -99,10 +95,12 @@ def render_doc_text(file_path):
 
 # 标记识别结果，并显示图片
 def rect_set(img, data_list):
+    i = 0
     for data in data_list:
         rect = data.position
         text = data.content
-        print(f"text：{text}   rect：{rect}")
+        print(f"{i}{text}   {rect}")
+        i += 1
     # 遍历每个矩形，绘制在图片上
     for data in data_list:
         rect = data.position
@@ -207,13 +205,10 @@ def get_right_area():
         # 定义要绘制的文本和位置
         text = data.content
 
-        if find_passport:
+        if "p" == text.lower():
             x = rect[0][0] - 2
             y = rect[0][1] - 2
             break
-
-        if "PASSPORT" == text:
-            find_passport = True
 
     return (x, y - 8)
 
@@ -335,7 +330,8 @@ def get_main_area():
     print(f"foot_area: {foot_area}")
 
     # 获取右侧区域的右上角坐标 (x,y)
-    right_point = get_right_area()
+    # right_point = get_right_area()
+    right_point = (199, 60)
     print(f"right_point: {right_point}")
 
     # cv2.rectangle(img, foot_area[0], foot_area[1], (0, 0, 255), 2)
@@ -412,33 +408,24 @@ def init(passport: Passport):
     set_tessract_app()
 
     # 是否进入调试模式
-    if config_options["DEBUG"].lower()=='true':
+    if config_options["DEBUG"].lower() == "true":
         debug_mode = True
-    elif config_options["DEBUG"].lower()=='false':
+    elif config_options["DEBUG"].lower() == "false":
         debug_mode = False
     else:
         print("ocr_configs.ini Debug value is ERROR!")
-
 
     # text_imgs
     text_imgs = config_options["OUTPUT_FOLDER_PATH"] + "/text_imgs"
 
 
 # 识别后数据输出到文本文件中
-def output_data2text_file(passport: Passport, data_list):
-    output_data_file = config_options["OUTPUT_FOLDER_PATH"] + "/data.txt"
+def output_data2text_file(passport_list):
+    output_data_file = config_options["OUTPUT_FOLDER_PATH"] + "/data.json"
 
     # 打开文件，将文件指针移动到文件的末尾
     with open(output_data_file, "a") as f:
-        current_time = datetime.now()
-        formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
-        f.write(f"[{formatted_time}][{passport.file_name}]\n")  # 写入时间并换行
-
-        for data in data_list:
-            text = data.content
-            f.write(text + "\n")  # 写入一行并换行
-
-        f.write("\n")  # 换行
+        json.dump([passport.info for passport in passport_list], f)
 
 
 # 分离图片上的文字
@@ -448,20 +435,66 @@ def extract_text_from_image(img, data_list, passport):
     border_color = [255, 255, 255]  # 白色
 
     # 遍历每个矩形，绘制在图片上
-    i=0
+    i = 0
     for data in data_list:
         rect = data.position
         x1, y1, x2, y2 = rect[0][0], rect[0][1], rect[1][0], rect[1][1]
         # 定义要绘制的文本和位置
         text = data.content
 
-        img_part = img[ y1-2: y2+2 ,x1-2: x2+2]
-        border_img = cv2.copyMakeBorder(img_part, border_width, border_width, border_width, border_width,
-                                cv2.BORDER_CONSTANT, value=border_color)
+        img_part = img[y1 - 2 : y2 + 2, x1 - 2 : x2 + 2]
+        border_img = cv2.copyMakeBorder(
+            img_part,
+            border_width,
+            border_width,
+            border_width,
+            border_width,
+            cv2.BORDER_CONSTANT,
+            value=border_color,
+        )
 
-        file_name=passport.file_name.split('.')[0]
+        file_name = passport.file_name.split(".")[0]
         cv2.imwrite(f"{text_imgs}/{file_name}_{str(i).zfill(3)}_{text}.png", border_img)
-        i+=1
+        i += 1
+
+
+# 获取护照信息
+def datalist2info(passport: Passport, data_list):
+    ret = {}
+
+    ocr_texts = ""
+    for data in data_list:
+        # 文本
+        ocr_texts += f"{data.content} {data.position}\n"
+
+    ret["file_name"] = passport.file_name
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ret["time"] = now_str
+
+    if len(data_list) != 12:
+        ret["msg"] = "识别后文字信息行数不为12，有识别错误。"
+        ret["ocr_texts"] = ocr_texts
+        return ret
+
+    ret["msg"] = ""
+    ret["ocr_texts"] = ocr_texts
+
+    ret["Type"] = data_list[0].content
+    ret["Issuing country"] = data_list[1].content
+    ret["Passport No."] = data_list[2].content
+    ret["Surname"] = data_list[3].content
+    ret["Given name"] = data_list[4].content
+    ret["Nationality"] = data_list[5].content[0:-9]
+    ret["Date of birth"] = data_list[5].content[-9:]
+    ret["Sex"] = data_list[6].content
+    ret["Registered Domicile"] = data_list[7].content
+    ret["Dete of issue"] = data_list[8].content
+    ret["Dete of expiry"] = data_list[9].content
+    ret["foot1"] = data_list[10].content
+    ret["foot2"] = data_list[11].content
+
+    return ret
 
 
 def run(passport: Passport, _config_options: dict):
@@ -479,7 +512,9 @@ def run(passport: Passport, _config_options: dict):
     img = cv2.imread(sample_edited_img_path, cv2.IMREAD_GRAYSCALE)
 
     # OCR
-    data_list = ocr_by_key(img, "digits")
+    data_list = ocr_by_key(img, "word")
+    # 获取护照信息
+    passport.info = datalist2info(passport, data_list)
 
     # 新建文字信息拆分后数据文件夹
     extract_text_from_image(img, data_list, passport)
@@ -506,7 +541,3 @@ def run(passport: Passport, _config_options: dict):
 
     # 显示拼接后的图像
     _imshow("Horizontal Concatenation", h_concat)
-
-    # 识别后数据输出到文本文件中
-    output_data2text_file(passport, data_list)
-

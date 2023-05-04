@@ -13,3 +13,7 @@ class Passport:
         self.sign_file_name = f"{name}_sign.png"
         # 图像识别后文件
         self.tessract_file_name = f"{name}_tessract.png"
+        # OCR数据
+        self.data_list = []
+        # 护照信息
+        self.info={}

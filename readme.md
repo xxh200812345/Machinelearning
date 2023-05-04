@@ -65,10 +65,8 @@ https://www.jianshu.com/p/f7cb0b3f337a
 ### 设置白名单
 
 1. 找到本机安装的 `Tesseract-OCR` 的文件夹
-1. 打开 `Tesseract-OCR\tessdata\configs\digits` 文件
-1. 复制 `tessedit_char_whitelist 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<`
-1. 覆盖 `tessedit_char_whitelist 0123456789-.`
-1. 保存 `digits` 文件
+1. 打开 `Tesseract-OCR\tessdata\configs\` 文件夹
+1. 复制 `res/_my_word` 文件到 `configs` 文件夹
 
 ### 设置自定义模型
 
@@ -86,7 +84,15 @@ https://www.jianshu.com/p/f7cb0b3f337a
 参考 `jpocr\passport_imgs\sample.jpg`
 
 ### 输出结果以及说明
-参考 `jpocr\output\`
+jpocr\output\
+
+| 文件名 | 说明 |
+| --- | --- |
+| *_edited.png | 图像处理后的图像 |
+| *_sign.png | 签名图像 |
+| *_tessract.png | OCR图像 |
+| data.json | 存放处理后的护照信息 |
+| text_imgs | 存放切割后的文字块的文件夹 |
 
 ## 训练
 
