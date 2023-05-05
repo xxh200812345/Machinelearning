@@ -4,6 +4,8 @@ from passport import Passport
 import os
 import shutil
 
+os.chdir(os.path.abspath(os.path.dirname(__file__)))
+
 # 配置文件数据组
 config_options={}
 

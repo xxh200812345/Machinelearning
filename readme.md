@@ -54,13 +54,9 @@ https://www.jianshu.com/p/f7cb0b3f337a
 
 > 修改 MAC_TESSRACT_LOCATION
 
-输入
-1. 复制 `jpocr/passport_imgs`绝对路径
-1. 修改 PASSPORT_IMAGES_FOLDER_PATH
+PASSPORT_IMAGES_FOLDER_PATH 输入
 
-输出
-1. 复制 `jpocr/output`绝对路径
-1. 修改 OUTPUT_FOLDER_PATH
+OUTPUT_FOLDER_PATH 输出
 
 ### 设置白名单
 
