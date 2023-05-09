@@ -3,3 +3,7 @@ jpocr/ai_jpocr_venv/
 jpocr/res/cut_imgs/
 jpocr/res/out_*
 jpocr/output/
+jpocr/res/护照定位测试文件/
+jpocr/res/un_upload/
+jpocr/passport_imgs/
+jpocr/passport_pdfs/
