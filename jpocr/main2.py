@@ -71,6 +71,8 @@ if __name__ == "__main__":
     # 遍历文件夹下所有文件
     for file_name in paths:
 
+    # file_name = paths[4]
+
         if file_name.endswith('.pdf'):
             print(f"开始处理:{passport_pdfs_dir}/{file_name}")
 
@@ -85,8 +87,6 @@ if __name__ == "__main__":
             passport_img_edit.find_passport(passport,config_options)
 
             passport_list.append(passport)
-
-            break
 
 
         # 如果是图片文件，则打印文件名

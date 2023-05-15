@@ -209,36 +209,235 @@ def rect_set(img, data_list):
     return img_cv
 
 
-def get_keywords(data_list):
-
-    passport_rect=None
-    # 找到 PASSPORT 
+def get_keywords(data_list, img):
+    passport_rect = None
+    # 找到 PASSPORT
     for data in data_list:
         rect = data.position
         text = data.content
-        if text.strip()=="PASSPORT":
+        if text.strip() == "PASSPORT":
             passport_rect = rect
             print(data)
             break
 
-    if passport_rect==None:
-        raise ValueError('PASSPORT关键字识别失败')
+    if passport_rect == None:
+        raise ValueError("PASSPORT关键字识别失败")
 
-    max_data=("",None)
+    # 最大的字符串
+    max_data = None
+    # 和PASSPORT最接近的字符串
+    near_datas = []
+    # PASSPORT的中轴线
+    passport_mid_h = (passport_rect[0][1] + passport_rect[1][1]) / 2
+    # PASSPORT的高
+    passport_h = passport_rect[1][1] - passport_rect[0][1]
     for data in data_list:
         rect = data.position
         text = data.content
+        # 中轴线
+        data_mid_h = (rect[0][1] + rect[1][1]) / 2
+        # 高
+        data_h = rect[1][1] - rect[0][1]
 
-        if len(text)>len(max_data[0]):
-            max_data=(text,rect)
-    
+        if (
+            abs(data_mid_h - passport_mid_h) < passport_h
+            and passport_h < int(passport_h * 0.2) + data_h
+            and passport_rect[1][0] < rect[1][0]
+        ):
+            near_datas.append(data)
+
+        if max_data == None or len(text) > len(max_data.content):
+            max_data = data
+
     print(f"max_data: {max_data}")
-    ret = {
-        "passport":passport_rect,
-        "max_data":max_data
-    }
 
-    return ret
+    p_rect = None
+    passportno_rect = None
+    for data in near_datas:
+        rect = data.position
+        text = data.content
+
+        # if debug_mode:
+        print(f"{text}: {rect}")
+
+        if "p" in text.strip().lower() and len(text) < 3:
+            p_rect = data.position
+            continue
+
+        if abs(len(text) - 9) < 3:
+            passportno_rect = data.position
+
+    if p_rect == None:
+        raise ValueError("P关键字识别失败")
+    if passportno_rect == None:
+        raise ValueError("Passport No关键字识别失败")
+
+    ret = {"passport": passport_rect, "max_data": max_data}
+
+    # 获取图片的宽度和高度
+    height, width = img.shape[:2]
+
+    # 创建一个全白色的遮罩，它的大小和原图一样
+    mask = np.ones((height, width), dtype="uint8") * 255
+
+    # 定义多边形顶点坐标
+    max_data_rect = max_data.position
+    max_data_h = max_data_rect[1][1] - max_data_rect[0][1]
+    points = np.array(
+        [
+            [p_rect[0][0] - 2, passportno_rect[0][1] - 2],  # 左上
+            [passportno_rect[1][0] + 2, passportno_rect[0][1] - 2],
+            [max_data_rect[1][0] + 2, passportno_rect[0][1] - 2],  # 右上
+            [max_data_rect[1][0] + 2, max_data_rect[1][1] + 2],
+            [max_data_rect[0][0] - 2, max_data_rect[1][1] + 2],
+            [max_data_rect[0][0] - 2, max_data_rect[1][1] - max_data_h * 3],
+            [p_rect[0][0] - 2, max_data_rect[1][1] - max_data_h * 3],
+        ],
+        dtype=np.int32,
+    )
+    # 重新调整维度
+    pts = points.reshape((-1, 1, 2))
+
+    # 在mask上绘制多边形
+    cv2.fillPoly(mask, [pts], (0))
+
+    # 把mask和原图进行“与”操作，得到遮罩部分的图像
+    res = cv2.bitwise_or(img, mask)
+
+    border = 2
+    res = res[
+        passportno_rect[0][1] - border : max_data_rect[1][1] + border,
+        max_data_rect[0][0] - border : max_data_rect[1][0] + border,
+    ]
+
+    print(f"有效数据图片大小：{res.shape}")
+
+    border = int(height * 0.05)
+    res = add_border_to_grayscale_image(res,border)
+
+    return res
+
+#白底灰度图像边框加宽
+def add_border_to_grayscale_image(image, border_size=10, border_color=255):
+    # 获取图像的尺寸
+    image_height, image_width = image.shape
+
+    # 计算背景的尺寸
+    background_height = image_height + (2 * border_size)
+    background_width = image_width + (2 * border_size)
+
+    # 创建背景图像
+    background = np.full((background_height, background_width), border_color, dtype=np.uint8)
+
+    # 将图像放置在背景中心
+    x = (background_width - image_width) // 2
+    y = (background_height - image_height) // 2
+    background[y:y+image_height, x:x+image_width] = image
+
+    return background
+
+
+# 基于哈希的字符串相似度检测
+def minhash_similarity(str1, str2, num_hashes=100):
+    # 定义哈希函数
+    def hash_function(x):
+        return hash(x)
+
+    # 生成哈希签名
+    def generate_minhash_signature(string, num_hashes):
+        signature = []
+        for i in range(num_hashes):
+            min_hash = float("inf")
+            for token in string:
+                hash_value = hash_function(str(i) + token)
+                if hash_value < min_hash:
+                    min_hash = hash_value
+            signature.append(min_hash)
+        return signature
+
+    # 计算相似度
+    def calculate_similarity(sig1, sig2):
+        intersection = len(set(sig1) & set(sig2))
+        union = len(set(sig1) | set(sig2))
+        similarity = intersection / union
+        return similarity
+
+    # 生成字符串的哈希签名
+    signature1 = generate_minhash_signature(str1, num_hashes)
+    signature2 = generate_minhash_signature(str2, num_hashes)
+
+    # 计算相似度
+    similarity = calculate_similarity(signature1, signature2)
+    return similarity
+
+
+def _imshow(title, img):
+    # if debug_mode == True:
+    cv2.imshow(title, img)
+    cv2.waitKey(0)  # 等待用户按下键盘上的任意键
+    cv2.destroyAllWindows()  # 关闭所有cv2.imshow窗口
+
+
+# 只返回指定高度以内的区域（max，min）
+def remove_small_height_regions(img, max_height, min_height):
+    # 对输入图像取反
+    inverted_img = cv2.bitwise_not(img)
+    # 膨胀操作
+    kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 1))
+    bin_clo = cv2.dilate(inverted_img, kernel2, iterations=2)
+    # _imshow("Gaussian Thresholding", bin_clo)
+
+    # 获取所有连通区域的标签
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+        bin_clo, connectivity=8
+    )
+
+    # 读取原始图像和矩形遮罩
+    mask = np.zeros(img.shape[:2], dtype=np.uint8)
+    # 遍历每个连通区域，计算它们的高度
+    for i in range(1, num_labels):
+        height = stats[i, cv2.CC_STAT_HEIGHT]
+        x1 = stats[i, cv2.CC_STAT_LEFT]
+        y1 = stats[i, cv2.CC_STAT_TOP]
+        x2 = stats[i, cv2.CC_STAT_LEFT] + stats[i, cv2.CC_STAT_WIDTH]
+        y2 = stats[i, cv2.CC_STAT_TOP] + stats[i, cv2.CC_STAT_HEIGHT]
+        # 高度设置大于指定值的区域
+        if height > min_height and height < max_height:
+            cv2.rectangle(mask, (x1 - 1, y1 - 1), (x2 + 1, y2 + 1), 255, -1)
+
+    return mask
+
+
+def resize_image_by_height(image, target_height):
+    # 获取原始图像的尺寸
+    height, width = image.shape[:2]
+
+    # 计算缩放因子
+    scale_factor = target_height / height
+
+    # 计算缩放后的宽度
+    target_width = int(width * scale_factor)
+
+    # 缩放图像
+    resized_image = cv2.resize(image, (target_width, target_height))
+
+    return resized_image
+
+
+def mask_fill_white(img, mask):
+    # 将矩形取反
+    mask_inv = cv2.bitwise_not(mask)
+    img_fg = cv2.bitwise_and(img, img, mask=mask_inv)
+
+    # 创建一个白色背景
+    background = np.ones(img.shape, dtype=np.uint8) * 255
+    result = cv2.bitwise_and(background, background, mask=mask)
+
+    # 将矩形内部区域与矩形外部区域合并
+    result = cv2.add(img_fg, result)
+
+    return result
+
 
 def find_passport(passport: Passport, _config_options: dict):
     global config_options
@@ -257,13 +456,28 @@ def find_passport(passport: Passport, _config_options: dict):
     x1, y1, x2, y2 = calc_row_and_col_sum(thresh)
 
     # 使用切片操作截取图像的中心部分top:bottom, left:right
-    cut_img = cv2.cvtColor(thresh[int(y1 + (y2 - y1) / 2) : y2, x1:x2], cv2.COLOR_GRAY2BGR)
-
-    data_list = ocr_by_key(cut_img,'word','jpn')
-    get_keywords(data_list)
-
+    thresh = thresh[int(y1 + (y2 - y1) / 2) : y2, x1:x2]
+    data_list = ocr_by_key(thresh, "word", "jpn")
+    cut_img = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
     img_cv = rect_set(cut_img, data_list)
     cv2.imwrite(sample_cut_img_path, img_cv)
+
+    # 获取数据范围
+    thresh = get_keywords(data_list, thresh)
+    # 缩放到固定高度600
+    thresh = resize_image_by_height(thresh, 800)
+
+    # 二值化图像
+    _, img_mask = cv2.threshold(thresh, 150, 255, cv2.THRESH_BINARY)
+    mask = remove_small_height_regions(img_mask, 20, 3)
+
+    # 遮罩外涂白
+    img = mask_fill_white(thresh, mask)
+
+    data_list = ocr_by_key(img, "word", "num_1")
+    cut_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    img_cv = rect_set(cut_img, data_list)
+    cv2.imwrite(sample_edited_img_path, img_cv)
 
 
 # 参数初始化
