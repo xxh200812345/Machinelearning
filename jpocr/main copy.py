@@ -1,7 +1,4 @@
-#!/bin/bash
 import passport_ocr
-import passport_img_edit
-import pdf2img
 import configparser
 from passport import Passport
 import os
@@ -30,6 +27,7 @@ def config_readin():
     options = config.options('section')
     for option in options:
         value = config.get('section', option)
+        print(f"{option}: {value}")
         
         config_options[option.upper()] = value
 
@@ -51,7 +49,6 @@ def init():
     #新建文字信息拆分后数据文件夹
     os.makedirs(config_options["OUTPUT_FOLDER_PATH"]+"/text_imgs")
 
-
 if __name__ == "__main__":
 
     # 初始化设置
@@ -60,43 +57,15 @@ if __name__ == "__main__":
     # 被识别图像所在文件夹
     passport_imgs_dir = config_options["PASSPORT_IMAGES_FOLDER_PATH"]
 
-    # 被识别PDF所在文件夹
-    passport_pdfs_dir = config_options["PASSPORT_PDFS_FOLDER_PATH"]
-
-    # 识别后输出文件夹
-    output_dir = config_options["OUTPUT_FOLDER_PATH"]
-
-    paths = os.listdir(passport_imgs_dir) + os.listdir(passport_pdfs_dir)
-
     # 遍历文件夹下所有文件
-    for file_name in paths:
-
-    # file_name = paths[4]
-
-        if file_name.endswith('.pdf'):
-            print(f"开始处理:{passport_pdfs_dir}/{file_name}")
-
-            passport = Passport(file_name)
-
-            #使用PyMuPDF库将页面转换为图像
-            pix=pdf2img.pdf_page_to_image(f"{passport_pdfs_dir}/{file_name}")
-            #保存图像
-            pdf2img.save_pix2png(pix,passport.pdf2png_file_name,output_dir)
-
-            # passport_ocr.run(passport,config_options)
-            passport_img_edit.find_passport(passport,config_options)
-
-            passport_list.append(passport)
-
-
+    for file_name in os.listdir(passport_imgs_dir):
         # 如果是图片文件，则打印文件名
         if file_name.endswith('.jpg') or file_name.endswith('.jpeg') or file_name.endswith('.png'):
             print(f"开始处理:{passport_imgs_dir}/{file_name}")
             passport = Passport(file_name)
-            # passport_ocr.run(passport,config_options)
+            passport_ocr.run(passport,config_options)
             passport_list.append(passport)
 
+    # 识别后数据输出到文本文件中
+    passport_ocr.output_data2text_file(passport_list)
 
-    # PNG文件图像处理
-    # OCR文字识别
-    # 输出并保存数据
