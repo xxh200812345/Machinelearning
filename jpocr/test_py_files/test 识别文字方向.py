@@ -42,7 +42,7 @@ def rotate_image_with_white_bg(image):
 
 
 # 读取图像
-image = Image.open('passport_imgs/荻野様 180度.png')
+image = Image.open('passport_imgs/荻野様 45度.png')
 image=cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 cv2.imshow("", rotate_image_with_white_bg(image))
 cv2.waitKey(0)  # 等待用户按下键盘上的任意键

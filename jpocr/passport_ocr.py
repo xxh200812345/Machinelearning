@@ -385,11 +385,11 @@ def rotate_image_with_white_bg(image):
     data = pytesseract.image_to_osd(image)
     print(data)
     # 从位置信息中提取文字方向
-    lines = data.split('\n')
+    lines = data.split("\n")
     angle = None
     for line in lines:
-        if line.startswith('Orientation in degrees:'):
-            angle = float(line.split(':')[1].strip())
+        if line.startswith("Orientation in degrees:"):
+            angle = float(line.split(":")[1].strip())
             break
 
     if angle < 1:
@@ -415,7 +415,9 @@ def rotate_image_with_white_bg(image):
     rotation_matrix[1, 2] += (new_height / 2) - center[1]
 
     # 执行旋转变换并填充白色背景
-    rotated_image = cv2.warpAffine(image, rotation_matrix, (new_width, new_height), borderValue=(255, 255, 255))
+    rotated_image = cv2.warpAffine(
+        image, rotation_matrix, (new_width, new_height), borderValue=(255, 255, 255)
+    )
 
     return rotated_image
 
@@ -505,9 +507,219 @@ def output_data2text_file(passport_list, _config_options: dict):
         json.dump([passport.info for passport in passport_list], f, ensure_ascii=False)
 
 
+def is_point_in_rect(point, rect):
+    """
+    判断点是否在矩形区域内
+
+    参数:
+    - point: 一个包含两个元素的元组或列表，表示点的坐标 (x, y)
+    - rect: 一个包含四个元素的元组或列表，表示矩形的坐标 (x1, y1, x2, y2)
+
+    返回值:
+    - 如果点在矩形区域内，则返回 True，否则返回 False
+    """
+    (x, y) = point
+    ((x1, y1), (x2, y2)) = rect
+
+    if x1 <= x <= x2 and y1 <= y <= y2:
+        return True
+    else:
+        return False
+
+
+def check_len(ret):
+    for title, key_len in Passport.PASSPORT_KEYS_LEN.items():
+        if key_len > 0 and len(ret[title]) < key_len:
+            ret["vs_info"][
+                title
+            ] = f"{Passport.OUT_ERROR_TAG}: 实际长度{len(ret[title])}小于预测长度{key_len}"
+        else:
+            ret["vs_info"][title] = ""
+
+
+def to_O(text):
+    return text.replace("0", "O")
+
+
+def to_0(text):
+    return text.replace("O", "0")
+
+
+def set_main_info(ret):
+    main_info = ret["main_info"]
+    vs_info = ret["vs_info"]
+
+    main_info[Passport.Type] = ret[Passport.Type]
+    main_info[Passport.Issuing_country] = to_O(ret[Passport.Issuing_country])
+
+    tmp = Passport.Passport_No
+    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+        main_info[tmp] = to_O(ret[tmp][:2]) + to_0(ret[tmp][2:])
+
+    main_info[Passport.Surname] = to_O(ret[Passport.Surname])
+    main_info[Passport.Given_name] = to_O(ret[Passport.Given_name])
+    main_info[Passport.Nationality] = to_O(ret[Passport.Nationality])
+
+    tmp = Passport.Date_of_birth
+    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+        main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
+
+    main_info[Passport.Sex] = ret[Passport.Sex]
+
+    main_info[Passport.Registered_Domicile] = to_O(ret[Passport.Registered_Domicile])
+
+    tmp = Passport.Date_of_issue
+    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+        main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
+
+    tmp = Passport.Date_of_expiry
+    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+        main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
+
+
+def set_mrz_info(ret):
+    mrz_info = ret["mrz_info"]
+    vs_info = ret["vs_info"]
+    foot1 = to_O(ret[Passport.foot1])
+    foot2 = ret[Passport.foot2]
+
+    if vs_info[Passport.foot1][:5] != Passport.OUT_ERROR_TAG:
+        Surname_p2 = 0
+        Given_name_p2 = 0
+        for title, position in Passport.PASSPORT_MRZ1_POSITION.items():
+            if title == Passport.Surname:
+                find_surname = foot1[position[0] :]
+                Surname_p2 = find_surname.find("<")
+                if Surname_p2 != -1:
+                    mrz_info[title] = find_surname[:Surname_p2]
+                    Surname_p2 = position[0]+len(mrz_info[title])
+                else:
+                    mrz_info[title] = Passport.OUT_ERROR_TAG + ": 找不到结尾<"
+
+            elif title == Passport.Given_name:
+                if Surname_p2 + 2 > len(foot1):
+                    mrz_info[title] = Passport.OUT_ERROR_TAG + ": 超过了MRZ的长度"
+                elif mrz_info[Passport.Surname][:5] == Passport.OUT_ERROR_TAG:
+                    mrz_info[title] = Passport.OUT_ERROR_TAG + ": 姓没找到，所以放弃找名"
+                else:
+                    find_given_name = foot1[Surname_p2 + 2 :]
+                    Given_name_p2 = find_given_name.find("<")
+                    if Given_name_p2 != -1:
+                        mrz_info[title] = find_given_name[:Given_name_p2]
+                    else:
+                        mrz_info[title] = Passport.OUT_ERROR_TAG + ": 找不到结尾<"
+
+            else:
+                mrz_info[title] = foot1[position[0] : position[1]]
+    else:
+        for title, position in Passport.PASSPORT_MRZ1_POSITION.items():
+            mrz_info[title] = ""
+
+    if vs_info[Passport.foot2][:5] != Passport.OUT_ERROR_TAG:
+        for title, position in Passport.PASSPORT_MRZ2_POSITION.items():
+            tmp = foot2[position[0] : position[1]]
+
+            if title == Passport.Passport_No:
+                mrz_info[title] = to_O(tmp[:2]) + to_0(tmp[2:])
+
+            if title == Passport.Nationality:
+                mrz_info[title] = to_O(tmp)
+
+            if title == Passport.Date_of_birth:
+                mrz_info[title] = to_0(tmp)
+
+            if title == Passport.Date_of_expiry:
+                mrz_info[title] = to_0(tmp)
+
+            mrz_info[title] = tmp
+    else:
+        for title, position in Passport.PASSPORT_MRZ1_POSITION.items():
+            mrz_info[title] = ""
+
+
+def get_month_number(abbreviation):
+    """
+    将3个字母的月份缩写转换为对应的月份数字
+    """
+    try:
+        date_object = datetime.strptime(abbreviation, "%b")
+        month_number = date_object.month
+        return month_number
+    except ValueError:
+        return f"月份{abbreviation}转换错误"
+
+
+def add_error_to_vsinfo(info, error_msg):
+    """
+    追加对应的比较错误 info：vs_info[title]
+    """
+    if info[:5] != Passport.OUT_ERROR_TAG:
+        info = Passport.OUT_ERROR_TAG + ": " + error_msg
+    else:
+        info += ";" + error_msg
+
+    return info
+
+
+def set_vs_info(ret):
+    main_info = ret["main_info"]
+    mrz_info = ret["mrz_info"]
+    vs_info = ret["vs_info"]
+
+    for title, mrz_item in mrz_info.items():
+        if main_info[title][:5] == Passport.OUT_ERROR_TAG:
+            error_msg = f"中间的信息项目存在错误"
+            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+        elif mrz_info[title][:5] == Passport.OUT_ERROR_TAG:
+            error_msg = f"MRZ的信息项目存在错误"
+            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+        elif main_info == "":
+            error_msg = f"中间的信息项目没有值"
+            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+        elif mrz_info == "":
+            error_msg = f"MRZ的信息项目没有值"
+            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+        elif title == Passport.Date_of_birth or title == Passport.Date_of_expiry:
+            month_num = get_month_number(main_info[title][2:5])
+            if isinstance(month_num, str):
+                error_msg = month_num
+                vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+            else:
+                main_item = (
+                    main_info[title][-2:] + str(month_num).zfill(2) + main_info[title][:2]
+                )
+                if main_item != mrz_item:
+                    error_msg = f"数据不一致"
+                    vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+        elif title == Passport.Nationality:
+            nationality_code=Passport.get_nationality_code(main_info[title])
+            if nationality_code == 'UNK':
+                error_msg = f"没找到对应的国家（{main_info[title]}）code"
+                vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+            elif nationality_code != mrz_info[title]:
+                error_msg = f"数据不一致"
+                vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+        elif main_info[title] != mrz_info[title]:
+            error_msg = f"数据不一致"
+            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+
+    return
+
+
 # 获取护照信息
 def datalist2info(passport: Passport, data_list):
     ret = {}
+    ret["main_info"] = {}
+    ret["mrz_info"] = {}
+    ret["vs_info"] = {}
+    ret["err_msg"] = ""
 
     ocr_texts = ""
     for data in data_list:
@@ -520,26 +732,38 @@ def datalist2info(passport: Passport, data_list):
     ret["time"] = now_str
 
     if len(data_list) != 13:
-        ret["msg"] = "识别后文字信息行数不为12，有识别错误。"
-        ret["ocr_texts"] = ocr_texts
-        return ret
+        ret["err_msg"] += "识别后文字信息行数不为13，有识别错误。"
 
-    ret["msg"] = ""
     ret["ocr_texts"] = ocr_texts
 
-    ret["Type"] = data_list[0].content
-    ret["Issuing country"] = data_list[1].content
-    ret["Passport No."] = data_list[2].content
-    ret["Surname"] = data_list[3].content
-    ret["Given name"] = data_list[4].content
-    ret["Nationality"] = data_list[5].content
-    ret["Date of birth"] = data_list[6].content
-    ret["Sex"] = data_list[7].content
-    ret["Registered Domicile"] = data_list[8].content
-    ret["Dete of issue"] = data_list[9].content
-    ret["Dete of expiry"] = data_list[10].content
-    ret["foot1"] = data_list[11].content
-    ret["foot2"] = data_list[12].content
+    # for i, data in enumerate(data_list):
+    #     rect = data.position
+    #     text = data.content
+    #     ((x1, y1), (x2, y2)) = rect
+    #     rect_center = (int(x1 + x2) / 2, int(y1 + y2) / 2)
+    #     print(f"'{PASSPORT_TITLES[i]}' , {rect_center}")
+
+    error_vals = 0
+    for key, value in Passport.PASSPORT_KEYS_POSITION.items():
+        for data in data_list:
+            rect = data.position
+            text = data.content
+            if is_point_in_rect(value, rect):
+                ret[key] = text
+                break
+
+        if key not in ret:
+            ret[key] = Passport.OUT_ERROR_TAG + ": 没有找到数据."
+            error_vals += 1
+
+    if error_vals > 0:
+        ret["err_msg"] += f"一共有{error_vals}个数据没有找到对应值。"
+
+    # 根据基础信息生成三个对象，对象main_info保存护照主要信息，对象mrz_info保存下方mrz分解后的信息，对象vs_info保存对比信息
+    check_len(ret)
+    set_main_info(ret)
+    set_mrz_info(ret)
+    set_vs_info(ret)
 
     return ret
 
@@ -604,7 +828,7 @@ def run(passport: Passport, _config_options: dict):
     cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
 
     # 去除title top:bottom, left:right
-    mask = remove_small_height_regions(mask, img_mask, 22, 3)
+    mask = remove_small_height_regions(mask, img_mask, 20, 3)
 
     # 遮罩外涂白
     img = mask_fill_white(thresh, mask)

@@ -72,6 +72,10 @@ if __name__ == "__main__":
     # 遍历文件夹下所有文件
     for file_name in paths:
         if file_name.endswith(".pdf"):
+
+            # if("中島敏壽様　パスポート" not in file_name):
+            #     continue
+
             print(f"开始处理:{passport_pdfs_dir}/{file_name}")
 
             passport = Passport(file_name)
@@ -79,8 +83,8 @@ if __name__ == "__main__":
             # 使用PyMuPDF库将页面转换为图像
             pix = pdf2img.pdf_page_to_image(f"{passport_pdfs_dir}/{file_name}")
             # 保存图像
-            # pdf2img.save_pix2png(pix, passport.pdf2png_file_name, output_dir)
-            # passport_ocr.run(passport, config_options)
+            pdf2img.save_pix2png(pix, passport.pdf2png_file_name, output_dir)
+            passport_ocr.run(passport, config_options)
 
             passport_list.append(passport)
 
@@ -90,6 +94,7 @@ if __name__ == "__main__":
             or file_name.endswith(".jpeg")
             or file_name.endswith(".png")
         ):
+            continue
             print(f"开始处理:{passport_imgs_dir}/{file_name}")
             passport = Passport(file_name)
             passport_ocr.run(passport,config_options)
