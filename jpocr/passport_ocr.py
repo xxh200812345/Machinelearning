@@ -753,7 +753,8 @@ def datalist2info(passport: Passport, data_list):
     ret["time"] = now_str
 
     if len(data_list) != 13:
-        ret["err_msg"] += "识别后文字信息行数不为13，有识别错误。"
+        err_msg = "识别后文字信息行数不为13，有识别错误。"
+        ret["err_msg"] = add_error_to_info(ret["err_msg"], err_msg)
 
     ret["ocr_texts"] = ocr_texts
 
@@ -778,7 +779,8 @@ def datalist2info(passport: Passport, data_list):
             error_vals += 1
 
     if error_vals > 0:
-        ret["err_msg"] += f"一共有{error_vals}个数据没有找到对应值。"
+        err_msg = f"一共有{error_vals}个数据没有找到对应值。"
+        ret["err_msg"] = add_error_to_info(ret["err_msg"], err_msg)
 
     # 根据基础信息生成三个对象，对象main_info保存护照主要信息，对象mrz_info保存下方mrz分解后的信息，对象vs_info保存对比信息
     check_len(ret)
