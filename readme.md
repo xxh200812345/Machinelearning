@@ -75,7 +75,9 @@ OUTPUT_FOLDER_PATH 输出
 1. 找到本机安装的 `Tesseract-OCR` 的文件夹
 1. 打开 `Tesseract-OCR\tessdata\` 文件夹
 1. 复制模型 `jpocr\res\num_1.traineddata` 到 `tessdata\`文件夹
-1. 使用 `tesseract --list-langs` 命令,查看是否正确安装：eng jpn jpn_vert `num_1` osd
+1. 复制模型 `jpocr\res\eng.traineddata` 到 `tessdata\`文件夹
+1. 复制模型 `jpocr\res\jpn.traineddata` 到 `tessdata\`文件夹
+1. 使用 `tesseract --list-langs` 命令,查看是否正确安装：`eng` `jpn` `num_1`
 
 ### 运行
 

@@ -23,6 +23,7 @@ class Passport:
         self.ext = ext
         # 护照信息
         self.info = {}
+        self.info["err_msg"] = ""
 
     Type = "Type"
     Issuing_country = "Issuing country"

@@ -69,7 +69,11 @@ if __name__ == "__main__":
     # 识别后输出文件夹
     output_dir = config_options["OUTPUT_FOLDER_PATH"]
 
-    paths = os.listdir(passport_imgs_dir) + os.listdir(passport_pdfs_dir)
+    paths = []
+    if os.path.exists(passport_imgs_dir):
+        paths += os.listdir(passport_imgs_dir)
+    if os.path.exists(passport_pdfs_dir):
+        paths += os.listdir(passport_pdfs_dir)
 
     # 遍历文件夹下所有文件
     for file_name in paths:

@@ -127,15 +127,16 @@ def set_tessract_app():
 
 
 def convert_mac_path_to_windows(mac_path):
-    '''
+    """
     将Mac上的相对路径转换为Windows上的相对路径
-    '''
-    windows_path = mac_path.replace('/', '\\')  # 将正斜杠替换为反斜杠
-    if windows_path.startswith('\\'):  # 如果路径以根目录开始
+    """
+    windows_path = mac_path.replace("/", "\\")  # 将正斜杠替换为反斜杠
+    if windows_path.startswith("\\"):  # 如果路径以根目录开始
         windows_path = windows_path[1:]  # 移除开头的反斜杠
         drive = os.path.splitdrive(os.getcwd())[0]  # 获取当前工作目录的盘符
         windows_path = drive + windows_path  # 添加盘符
     return windows_path
+
 
 # 初始化设置
 def init(passport: Passport):
@@ -156,16 +157,6 @@ def init(passport: Passport):
 
     debug_font = config_options["DEBUG_FONT"]
 
-    # # 获取操作系统名称及版本号
-    # os = platform.system()
-
-    # if os != "Darwin":
-    #     sample_img_path=convert_mac_path_to_windows(sample_img_path)
-    #     sample_cut_img_path=convert_mac_path_to_windows(sample_cut_img_path)
-    #     sample_edited_img_path=convert_mac_path_to_windows(sample_edited_img_path)
-    #     sample_sign_img_path=convert_mac_path_to_windows(sample_sign_img_path)
-    #     debug_font=convert_mac_path_to_windows(debug_font)
-
     # 设置tessract入口程序安装位置
     set_tessract_app()
 
@@ -176,8 +167,6 @@ def init(passport: Passport):
         debug_mode = False
     else:
         print("ocr_configs.ini Debug value is ERROR!")
-
-        
 
 
 def ocr_by_key(img, key, lang="num_1"):
@@ -623,7 +612,7 @@ def set_mrz_info(ret):
                 Surname_p2 = find_surname.find("<")
                 if Surname_p2 != -1:
                     mrz_info[title] = find_surname[:Surname_p2]
-                    Surname_p2 = position[0]+len(mrz_info[title])
+                    Surname_p2 = position[0] + len(mrz_info[title])
                 else:
                     mrz_info[title] = Passport.OUT_ERROR_TAG + ": 找不到结尾<"
 
@@ -680,7 +669,7 @@ def get_month_number(abbreviation):
         return f"月份{abbreviation}转换错误"
 
 
-def add_error_to_vsinfo(info, error_msg):
+def add_error_to_info(info, error_msg):
     """
     追加对应的比较错误 info：vs_info[title]
     """
@@ -700,57 +689,58 @@ def set_vs_info(ret):
     for title, mrz_item in mrz_info.items():
         if main_info[title][:5] == Passport.OUT_ERROR_TAG:
             error_msg = f"中间的信息项目存在错误"
-            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
         elif mrz_info[title][:5] == Passport.OUT_ERROR_TAG:
             error_msg = f"MRZ的信息项目存在错误"
-            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
         elif main_info == "":
             error_msg = f"中间的信息项目没有值"
-            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
         elif mrz_info == "":
             error_msg = f"MRZ的信息项目没有值"
-            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
         elif title == Passport.Date_of_birth or title == Passport.Date_of_expiry:
             month_num = get_month_number(main_info[title][2:5])
             if isinstance(month_num, str):
                 error_msg = month_num
-                vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+                vs_info[title] = add_error_to_info(vs_info[title], error_msg)
             else:
                 main_item = (
-                    main_info[title][-2:] + str(month_num).zfill(2) + main_info[title][:2]
+                    main_info[title][-2:]
+                    + str(month_num).zfill(2)
+                    + main_info[title][:2]
                 )
                 if main_item != mrz_item:
                     error_msg = f"数据不一致"
-                    vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+                    vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
         elif title == Passport.Nationality:
-            nationality_code=Passport.get_nationality_code(main_info[title])
-            if nationality_code == 'UNK':
+            nationality_code = Passport.get_nationality_code(main_info[title])
+            if nationality_code == "UNK":
                 error_msg = f"没找到对应的国家（{main_info[title]}）code"
-                vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+                vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
             elif nationality_code != mrz_info[title]:
                 error_msg = f"数据不一致"
-                vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+                vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
         elif main_info[title] != mrz_info[title]:
             error_msg = f"数据不一致"
-            vs_info[title] = add_error_to_vsinfo(vs_info[title], error_msg)
+            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
     return
 
 
 # 获取护照信息
 def datalist2info(passport: Passport, data_list):
-    ret = {}
+    ret = passport.info
     ret["main_info"] = {}
     ret["mrz_info"] = {}
     ret["vs_info"] = {}
-    ret["err_msg"] = ""
 
     ocr_texts = ""
     for data in data_list:
@@ -799,7 +789,7 @@ def datalist2info(passport: Passport, data_list):
     return ret
 
 
-def run(passport: Passport, _config_options: dict):
+def main(passport: Passport, _config_options: dict):
     global config_options
 
     config_options = _config_options
@@ -807,7 +797,6 @@ def run(passport: Passport, _config_options: dict):
     # 初始化设置
     init(passport)
 
-    
     # 使用PIL库打开图像文件
     pil_image = Image.open(sample_img_path)
     img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
@@ -829,7 +818,7 @@ def run(passport: Passport, _config_options: dict):
     data_list = ocr_by_key(thresh, "word", "jpn")
     cut_img = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
     img_cv = rect_set(cut_img, data_list)
-    
+
     plt.imsave(sample_cut_img_path, img_cv)
 
     # 获取数据范围
@@ -852,7 +841,9 @@ def run(passport: Passport, _config_options: dict):
     )
     sign_rect = ((x1, y1), (x2, y2))
     cv2.rectangle(mask, sign_rect[0], sign_rect[1], 255, -1)
-    plt.imsave(sample_sign_img_path, binary_img_with_transparency(img_mask[y1:y2, x1:x2]))
+    plt.imsave(
+        sample_sign_img_path, binary_img_with_transparency(img_mask[y1:y2, x1:x2])
+    )
 
     # 去除水印
     x1, y1, x2, y2 = (
@@ -879,3 +870,14 @@ def run(passport: Passport, _config_options: dict):
     # 存储OCR结果图片
     img_cv = rect_set(cut_img, data_list)
     plt.imsave(sample_edited_img_path, img_cv)
+
+
+def run(passport: Passport, _config_options: dict):
+    try:
+        main(passport, _config_options)
+    except Exception as e:
+        # 捕获异常并打印错误信息
+        print("发生错误:", str(e))
+
+        ret = passport.info
+        ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
