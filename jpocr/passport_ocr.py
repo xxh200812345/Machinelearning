@@ -1,3 +1,6 @@
+#!/bin/bash
+# -*- coding: utf-8 -*-
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import pyocr
@@ -7,12 +10,16 @@ import platform
 from collections import Counter
 
 from PIL import Image
+import matplotlib.pyplot as plt
 
 import json
 from passport import Passport
 from datetime import datetime
 
 import pytesseract
+import os
+
+os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
 
 # 返回非空白区域范围
@@ -119,6 +126,17 @@ def set_tessract_app():
         pyocr.tesseract.TESSERACT_CMD = config_options["MAC_TESSRACT_LOCATION"]
 
 
+def convert_mac_path_to_windows(mac_path):
+    '''
+    将Mac上的相对路径转换为Windows上的相对路径
+    '''
+    windows_path = mac_path.replace('/', '\\')  # 将正斜杠替换为反斜杠
+    if windows_path.startswith('\\'):  # 如果路径以根目录开始
+        windows_path = windows_path[1:]  # 移除开头的反斜杠
+        drive = os.path.splitdrive(os.getcwd())[0]  # 获取当前工作目录的盘符
+        windows_path = drive + windows_path  # 添加盘符
+    return windows_path
+
 # 初始化设置
 def init(passport: Passport):
     global sample_img_path, sample_cut_img_path, sample_edited_img_path, sample_sign_img_path
@@ -131,11 +149,22 @@ def init(passport: Passport):
         sample_img_path = f"{output_dir}/{passport.pdf2png_file_name}"
     else:
         sample_img_path = f"{input_dir}/{passport.file_name}"
+
     sample_cut_img_path = f"{output_dir}/{passport.cut_file_name}"
     sample_edited_img_path = f"{output_dir}/{passport.edited_file_name}"
     sample_sign_img_path = f"{output_dir}/{passport.sign_file_name}"
 
     debug_font = config_options["DEBUG_FONT"]
+
+    # # 获取操作系统名称及版本号
+    # os = platform.system()
+
+    # if os != "Darwin":
+    #     sample_img_path=convert_mac_path_to_windows(sample_img_path)
+    #     sample_cut_img_path=convert_mac_path_to_windows(sample_cut_img_path)
+    #     sample_edited_img_path=convert_mac_path_to_windows(sample_edited_img_path)
+    #     sample_sign_img_path=convert_mac_path_to_windows(sample_sign_img_path)
+    #     debug_font=convert_mac_path_to_windows(debug_font)
 
     # 设置tessract入口程序安装位置
     set_tessract_app()
@@ -147,6 +176,8 @@ def init(passport: Passport):
         debug_mode = False
     else:
         print("ocr_configs.ini Debug value is ERROR!")
+
+        
 
 
 def ocr_by_key(img, key, lang="num_1"):
@@ -776,9 +807,15 @@ def run(passport: Passport, _config_options: dict):
     # 初始化设置
     init(passport)
 
+    
+    # 使用PIL库打开图像文件
+    pil_image = Image.open(sample_img_path)
+    img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    # img = cv2.imread(os.path.abspath(sample_img_path))
+
     # 裁切30px不需要的部分,返回处理后的
-    img = cv2.imread(sample_img_path)
     del_img = crop_image(img, 30)
+
     # 获取识别文字的方向，并旋转图片，只能识别90 180 270
     del_img = rotate_image_with_white_bg(del_img)
 
@@ -792,7 +829,8 @@ def run(passport: Passport, _config_options: dict):
     data_list = ocr_by_key(thresh, "word", "jpn")
     cut_img = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
     img_cv = rect_set(cut_img, data_list)
-    cv2.imwrite(sample_cut_img_path, img_cv)
+    
+    plt.imsave(sample_cut_img_path, img_cv)
 
     # 获取数据范围
     thresh = get_keywords(data_list, thresh)
@@ -814,9 +852,7 @@ def run(passport: Passport, _config_options: dict):
     )
     sign_rect = ((x1, y1), (x2, y2))
     cv2.rectangle(mask, sign_rect[0], sign_rect[1], 255, -1)
-    cv2.imwrite(
-        sample_sign_img_path, binary_img_with_transparency(img_mask[y1:y2, x1:x2])
-    )
+    plt.imsave(sample_sign_img_path, binary_img_with_transparency(img_mask[y1:y2, x1:x2]))
 
     # 去除水印
     x1, y1, x2, y2 = (
@@ -842,4 +878,4 @@ def run(passport: Passport, _config_options: dict):
 
     # 存储OCR结果图片
     img_cv = rect_set(cut_img, data_list)
-    cv2.imwrite(sample_edited_img_path, img_cv)
+    plt.imsave(sample_edited_img_path, img_cv)

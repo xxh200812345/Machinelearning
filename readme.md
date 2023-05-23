@@ -1,8 +1,8 @@
 # 护照windows部署手册
 
 # 更新履历
-- 1.0x 2023/4/23 实现基本功能
-- 2.0x 2023/5/23 追加了PDF识别，细化输出
+- 1.x 2023/4/23 实现基本功能
+- 2.x 2023/5/23 追加了PDF识别，细化输出
 
 ## 部署OCR程序
 从github链接clone项目到windows 
@@ -58,7 +58,9 @@ https://www.jianshu.com/p/f7cb0b3f337a
 
 > 修改 MAC_TESSRACT_LOCATION
 
-PASSPORT_IMAGES_FOLDER_PATH 输入
+PASSPORT_IMAGES_FOLDER_PATH 图片输入
+
+PASSPORT_PDFS_FOLDER_PATH PDF输入
 
 OUTPUT_FOLDER_PATH 输出
 

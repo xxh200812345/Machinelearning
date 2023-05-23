@@ -1,4 +1,6 @@
 #!/bin/bash
+# -*- coding: utf-8 -*-
+
 import passport_ocr
 
 import pdf2img
@@ -94,7 +96,6 @@ if __name__ == "__main__":
             or file_name.endswith(".jpeg")
             or file_name.endswith(".png")
         ):
-            continue
             print(f"开始处理:{passport_imgs_dir}/{file_name}")
             passport = Passport(file_name)
             passport_ocr.run(passport,config_options)
