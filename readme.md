@@ -81,18 +81,86 @@ OUTPUT_FOLDER_PATH 输出
 
 ## 测试
 ### 输入图片标准说明
-参考 `jpocr\passport_imgs\sample.jpg`
+- 文件存放位置：jpocr\passport_imgs 
+- 护照的PDF扫描文档转图像，护照必须垂直或者水平
+
+### 输入PDF标准说明
+- 文件存放位置：jpocr\passport_pdfs
+- 护照的PDF扫描文档，护照必须垂直或者水平
 
 ### 输出结果以及说明
 jpocr\output\
 
 | 文件名 | 说明 |
 | --- | --- |
-| *_edited.png | 图像处理后的图像 |
+| *_pdf2png.png | PDF转PNG |
+| *_cut.png | 整体护照OCR识别结果 |
+| *_edited.png | 图像处理后的图像OCR识别结果 |
 | *_sign.png | 签名图像 |
 | *_tessract.png | OCR图像 |
 | data.json | 存放处理后的护照信息 |
-| text_imgs | 存放切割后的文字块的文件夹 |
+| text_imgs | 存放切割后的文字块的文件夹（目前没开放） |
+
+#### data.json
+
+    {
+        "main_info": { # 护照主体识别处理后数据
+            "Type": "P",
+            "Issuing country": "",
+            "Passport No.": "",
+            "Surname": "",
+            "Given name": "",
+            "Nationality": "",
+            "Date of birth": "",
+            "Sex": "",
+            "Registered Domicile": "",
+            "Date of issue": "",
+            "Date of expiry": ""
+        },
+        "mrz_info": { # 护照MRZ识别处理后数据
+            "Type": "",
+            "Issuing country": "",
+            "Surname": "",
+            "Given name": "",
+            "Passport No.": "",
+            "Nationality": "",
+            "Date of birth": "",
+            "Sex": "",
+            "Date of expiry": ""
+        },
+        "vs_info": { # 护照主体和MRZ对比信息，不一致会Error.xxx，一致为空
+            "Type": "",
+            "Issuing country": "",
+            "Passport No.": "",
+            "Surname": "",
+            "Given name": "",
+            "Nationality": "",
+            "Date of birth": "",
+            "Sex": "",
+            "Registered Domicile": "",
+            "Date of issue": "",
+            "Date of expiry": "",
+            "foot1": "",
+            "foot2": ""
+        },
+        "err_msg": "", # 整体报错信息
+        "file_name": "", # 处理文件名
+        "time": "", # 处理时间
+        "ocr_texts": "", # OCR识别后的所有信息
+        "Type": "P",
+        "Issuing country": "",
+        "Passport No.": "",
+        "Surname": "",
+        "Given name": "",
+        "Nationality": "",
+        "Date of birth": "",
+        "Sex": "",
+        "Registered Domicile": "",
+        "Date of issue": "",
+        "Date of expiry": "",
+        "foot1": "", # MRZ1
+        "foot2": "" # MRZ2
+    }
 
 ## 训练
 
