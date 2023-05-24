@@ -4,6 +4,12 @@
 - 1.x 2023/4/23 实现基本功能
 - 2.x 2023/5/23 追加了PDF识别，细化输出
 
+## 更新步骤
+1. 更新依赖包
+2. 更新模型
+3. 放入pdf
+4. 运行
+
 ## 部署OCR程序
 从github链接clone项目到windows 
 https://github.com/xxh200812345/Machinelearning.git
@@ -101,7 +107,6 @@ jpocr\output\
 | *_cut.png | 整体护照OCR识别结果 |
 | *_edited.png | 图像处理后的图像OCR识别结果 |
 | *_sign.png | 签名图像 |
-| *_tessract.png | OCR图像 |
 | data.json | 存放处理后的护照信息 |
 | text_imgs | 存放切割后的文字块的文件夹（目前没开放） |
 
