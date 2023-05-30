@@ -35,16 +35,6 @@ https://www.jianshu.com/p/f7cb0b3f337a
 
 正确打印便证明安装成功
 
-### 配置虚拟环境
-
-    cd .\jpocr\
-    python -m venv ai_jpocr_venv
-    ai_jpocr_venv\Scripts\activate
-    pip install -r requirements.txt
-
-正确安装输出log：
-
-    Successfully installed Pillow-9.5.0 autopep8-2.0.2 black-23.3.0 click-8.1.3 colorama-0.4.6 contourpy-1.0.7 cycler-0.11.0 fonttools-4.39.3 importlib-resources-5.12.0 kiwisolver-1.4.4 matplotlib-3.7.1 mypy-extensions-1.0.0 numpy-1.24.2 opencv-contrib-python-4.7.0.72 opencv-python-4.7.0.72 packaging-23.0 pathspec-0.11.1 platformdirs-3.2.0 pycodestyle-2.10.0 pyocr-0.7.2 pyparsing-3.0.9 python-dateutil-2.8.2 six-1.16.0 tomli-2.0.1 typing_extensions-4.5.0 zipp-3.15.0
 
 ### 设置安装tessract的应用路径
 
@@ -58,11 +48,37 @@ https://www.jianshu.com/p/f7cb0b3f337a
 
 > 修改 MAC_TESSRACT_LOCATION
 
-PASSPORT_IMAGES_FOLDER_PATH 图片输入
+PASSPORT_IMAGES_FOLDER_PATH 图片输入（可以不设置用默认）
 
-PASSPORT_PDFS_FOLDER_PATH PDF输入
+PASSPORT_PDFS_FOLDER_PATH PDF输入（可以不设置用默认）
 
-OUTPUT_FOLDER_PATH 输出
+OUTPUT_FOLDER_PATH 输出（可以不设置用默认）
+
+## Window自动化
+运行 `jpocr\setup.bat`，自动配置白名单、自定义模型、虚拟环境
+
+### 自动设置白名单
+
+1. 复制 `res\_my_word` 文件到 `tessdata\configs\` 文件夹
+
+### 自动设置自定义模型
+
+1. 复制模型 `jpocr\res\num_1.traineddata` 到 `tessdata\`文件夹
+1. 复制模型 `jpocr\res\eng.traineddata` 到 `tessdata\`文件夹
+1. 复制模型 `jpocr\res\jpn.traineddata` 到 `tessdata\`文件夹
+1. 运行 `tesseract --list-langs` 命令,查看是否正确安装：`eng` `jpn` `num_1`
+
+### 自动配置虚拟环境
+
+ai_jpocr_venv 虚拟环境
+
+正确安装输出log：
+
+    Successfully installed Pillow-9.5.0 autopep8-2.0.2 black-23.3.0 click-8.1.3 colorama-0.4.6 contourpy-1.0.7 cycler-0.11.0 fonttools-4.39.3 importlib-resources-5.12.0 kiwisolver-1.4.4 matplotlib-3.7.1 mypy-extensions-1.0.0 numpy-1.24.2 opencv-contrib-python-4.7.0.72 opencv-python-4.7.0.72 packaging-23.0 pathspec-0.11.1 platformdirs-3.2.0 pycodestyle-2.10.0 pyocr-0.7.2 pyparsing-3.0.9 python-dateutil-2.8.2 six-1.16.0 tomli-2.0.1 typing_extensions-4.5.0 zipp-3.15.0
+
+
+## MAC配置
+
 
 ### 设置白名单
 
@@ -78,6 +94,17 @@ OUTPUT_FOLDER_PATH 输出
 1. 复制模型 `jpocr\res\eng.traineddata` 到 `tessdata\`文件夹
 1. 复制模型 `jpocr\res\jpn.traineddata` 到 `tessdata\`文件夹
 1. 使用 `tesseract --list-langs` 命令,查看是否正确安装：`eng` `jpn` `num_1`
+
+### 配置虚拟环境
+
+    cd .\jpocr\
+    python -m venv ai_jpocr_venv
+    ai_jpocr_venv\Scripts\activate
+    pip install -r requirements.txt
+
+正确安装输出log：
+
+    Successfully installed Pillow-9.5.0 autopep8-2.0.2 black-23.3.0 click-8.1.3 colorama-0.4.6 contourpy-1.0.7 cycler-0.11.0 fonttools-4.39.3 importlib-resources-5.12.0 kiwisolver-1.4.4 matplotlib-3.7.1 mypy-extensions-1.0.0 numpy-1.24.2 opencv-contrib-python-4.7.0.72 opencv-python-4.7.0.72 packaging-23.0 pathspec-0.11.1 platformdirs-3.2.0 pycodestyle-2.10.0 pyocr-0.7.2 pyparsing-3.0.9 python-dateutil-2.8.2 six-1.16.0 tomli-2.0.1 typing_extensions-4.5.0 zipp-3.15.0
 
 ### 运行
 
