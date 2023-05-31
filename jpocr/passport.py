@@ -40,6 +40,10 @@ class Passport:
     foot2 = "foot2"
 
     OUT_ERROR_TAG = "Error"
+    
+    # 图片存放位置
+    image_dir = "images"
+    data_json_name = "data.json"
 
     PASSPORT_KEYS_LEN = {
         Type: 1,
