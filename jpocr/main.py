@@ -44,12 +44,14 @@ def init():
 
     if not os.path.exists(config_options["OUTPUT_FOLDER_PATH"]):
         os.makedirs(config_options["OUTPUT_FOLDER_PATH"])  # 如果文件夹不存在，则创建它
+        os.makedirs(config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.image_dir)  # 如果文件夹不存在，则创建它
     else:
         shutil.rmtree(config_options["OUTPUT_FOLDER_PATH"])  # 如果文件夹已经存在，则清空它
         os.makedirs(config_options["OUTPUT_FOLDER_PATH"])  # 然后再创建它
+        os.makedirs(config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.image_dir)  # 然后再创建它
 
     # 新建输出数据文件
-    output_data_file = config_options["OUTPUT_FOLDER_PATH"] + "/data.json"
+    output_data_file = config_options["OUTPUT_FOLDER_PATH"]+ "/" + Passport.data_json_name
     open(output_data_file, "w", encoding="utf-8")
 
     # 新建文字信息拆分后数据文件夹
@@ -67,7 +69,7 @@ if __name__ == "__main__":
     passport_pdfs_dir = config_options["PASSPORT_PDFS_FOLDER_PATH"]
 
     # 识别后输出文件夹
-    output_dir = config_options["OUTPUT_FOLDER_PATH"]
+    output_dir = config_options["OUTPUT_FOLDER_PATH"] + '/' + Passport.image_dir
 
     paths = []
     if os.path.exists(passport_imgs_dir):
