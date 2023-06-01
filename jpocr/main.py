@@ -7,6 +7,7 @@ import pdf2img
 import configparser
 from passport import Passport
 import os
+import sys
 import shutil
 
 import glob
@@ -40,6 +41,23 @@ def config_readin():
 
         config_options[option.upper()] = value
 
+    print(f"len(sys.argv): {sys.argv}")
+
+    if len(sys.argv) == 3:
+        config_options["PASSPORT_PDFS_FOLDER_PATH"] = sys.argv[1]
+        config_options["OUTPUT_FOLDER_PATH"] = sys.argv[2]
+
+    if len(sys.argv) != 1 and len(sys.argv) != 3:
+        error_exit("请输入命令：main.py input_path output_path")
+
+    # 传入文件夹地址时去除末尾的反斜杠符号（\）
+    config_options["PASSPORT_PDFS_FOLDER_PATH"] = config_options[
+        "PASSPORT_PDFS_FOLDER_PATH"
+    ].rstrip(os.sep)
+    config_options["OUTPUT_FOLDER_PATH"] = config_options["OUTPUT_FOLDER_PATH"].rstrip(
+        os.sep
+    )
+
 
 # 初始化设置
 def init():
@@ -62,6 +80,17 @@ def init():
     os.makedirs(config_options["OUTPUT_FOLDER_PATH"] + "/text_imgs")
 
 
+def error_exit(info_msg):
+    # 创建Tkinter根窗口
+    root = tkinter.Tk()
+    # 隐藏根窗口
+    root.withdraw()
+    print(info_msg)
+    messagebox.showinfo("提示", info_msg)
+    root.quit()  # 关闭应用程序
+    sys.exit()
+
+
 if __name__ == "__main__":
     # 初始化设置
     init()
@@ -72,20 +101,13 @@ if __name__ == "__main__":
     # 被识别PDF所在文件夹
     passport_pdfs_dir = config_options["PASSPORT_PDFS_FOLDER_PATH"]
 
-    # 识别后输出文件夹
+    # 识别后输出图片文件夹
     output_dir = config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.image_dir
 
     # 查询文件夹中是否存在pdf文件
     pdf_files = glob.glob(os.path.join(passport_pdfs_dir, "*.pdf"))
     if not pdf_files:
-        # 创建Tkinter根窗口
-        root = tkinter.Tk()
-        # 隐藏根窗口
-        root.withdraw()
-        info_msg = "文件夹中没有PDF文件！"
-        print(info_msg)
-        messagebox.showinfo("提示", info_msg)
-        root.quit()  # 关闭应用程序
+        error_exit("文件夹中没有PDF文件！")
 
     paths = []
     if os.path.exists(passport_imgs_dir):

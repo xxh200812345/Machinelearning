@@ -3,6 +3,7 @@
 ## 更新履历
 - 1.x 2023/4/23 实现基本功能
 - 2.x 2023/5/23 追加了PDF识别，细化输出
+- 2.2.0 2023/6/1 追加了参数传入输入输出文件夹路径，方便实际环境调用
 
 ## 更新步骤
 1. 更新依赖包
@@ -54,11 +55,11 @@ https://www.jianshu.com/p/f7cb0b3f337a
 
 > 修改 MAC_TESSRACT_LOCATION
 
-PASSPORT_IMAGES_FOLDER_PATH 图片输入（可以不设置用默认）
+PASSPORT_IMAGES_FOLDER_PATH 图片输入（可以不设置用默认）(不支持参数传入)
 
-PASSPORT_PDFS_FOLDER_PATH PDF输入（可以不设置用默认）
+PASSPORT_PDFS_FOLDER_PATH PDF输入（可以不设置用默认）（参数传入时无视此处设置）
 
-OUTPUT_FOLDER_PATH 输出（可以不设置用默认）
+OUTPUT_FOLDER_PATH 输出（可以不设置用默认）（参数传入时无视此处设置）
 
 ## Window自动化
 运行 `jpocr\setup.bat`，自动配置白名单、自定义模型、虚拟环境
@@ -124,8 +125,10 @@ ai_jpocr_venv 虚拟环境
 
 ### 运行代码
 
+参数传入为：输入PDF文件夹 输入文件夹
+
     PS H:\vswork\Machinelearning\jpocr> ai_jpocr_venv\Scripts\activate
-    (ai_jpocr_venv) PS H:\vswork\Machinelearning\jpocr> python main.py
+    (ai_jpocr_venv) PS H:\vswork\Machinelearning\jpocr> python main.py input_path output_path
 
 ### 输出结果以及说明
 jpocr\output\
@@ -139,7 +142,7 @@ jpocr\output\
 | *.json | 存放处理后的护照信息 |
 | text_imgs | 存放切割后的文字块的文件夹（目前没开放） |
 
-#### data.json
+#### *.json 存放处理后的护照信息
 
     {
         "main_info": { # 护照主体识别处理后数据
