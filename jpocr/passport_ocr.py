@@ -147,13 +147,19 @@ def init(passport: Passport):
     output_dir = config_options["OUTPUT_FOLDER_PATH"]
 
     if passport.ext == ".pdf":
-        sample_img_path = f"{output_dir}/{passport.image_dir}/{passport.pdf2png_file_name}"
+        sample_img_path = (
+            f"{output_dir}/{passport.image_dir}/{passport.pdf2png_file_name}"
+        )
     else:
         sample_img_path = f"{input_dir}/{passport.image_dir}/{passport.file_name}"
 
     sample_cut_img_path = f"{output_dir}/{passport.image_dir}/{passport.cut_file_name}"
-    sample_edited_img_path = f"{output_dir}/{passport.image_dir}/{passport.edited_file_name}"
-    sample_sign_img_path = f"{output_dir}/{passport.image_dir}/{passport.sign_file_name}"
+    sample_edited_img_path = (
+        f"{output_dir}/{passport.image_dir}/{passport.edited_file_name}"
+    )
+    sample_sign_img_path = (
+        f"{output_dir}/{passport.image_dir}/{passport.sign_file_name}"
+    )
 
     debug_font = config_options["DEBUG_FONT"]
 
@@ -521,7 +527,9 @@ def binary_img_with_transparency(img, threshold=180):
 # 识别后数据输出到文本文件中
 def output_data2text_file(passport_list, _config_options: dict):
     for passport in passport_list:
-        output_data_file = _config_options["OUTPUT_FOLDER_PATH"] + "/" + passport.file_name + ".json"
+        output_data_file = (
+            _config_options["OUTPUT_FOLDER_PATH"] + "/" + passport.file_name + ".json"
+        )
         # 打开文件，将文件指针移动到文件的末尾
         with open(output_data_file, "a", encoding="utf-8") as f:
             json.dump(passport.info, f, ensure_ascii=False)

@@ -96,6 +96,6 @@ class Passport:
             "Algeria": "DZA",
             # 其他国家的映射关系...
         }
-        return country_codes.get(nationality.capitalize(), "UNK")  # 如果找不到对应的国家，则返回UNK（未知）
-
-    
+        return country_codes.get(
+            nationality.capitalize(), "UNK"
+        )  # 如果找不到对应的国家，则返回UNK（未知）
