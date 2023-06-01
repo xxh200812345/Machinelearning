@@ -520,11 +520,11 @@ def binary_img_with_transparency(img, threshold=180):
 
 # 识别后数据输出到文本文件中
 def output_data2text_file(passport_list, _config_options: dict):
-    output_data_file = _config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.data_json_name
-
-    # 打开文件，将文件指针移动到文件的末尾
-    with open(output_data_file, "a", encoding="utf-8") as f:
-        json.dump([passport.info for passport in passport_list], f, ensure_ascii=False)
+    for passport in passport_list:
+        output_data_file = _config_options["OUTPUT_FOLDER_PATH"] + "/" + passport.file_name + ".json"
+        # 打开文件，将文件指针移动到文件的末尾
+        with open(output_data_file, "a", encoding="utf-8") as f:
+            json.dump(passport.info, f, ensure_ascii=False)
 
 
 def is_point_in_rect(point, rect):

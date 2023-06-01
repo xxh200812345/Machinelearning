@@ -114,9 +114,6 @@ ai_jpocr_venv 虚拟环境
 
 ## 运行
 
-    (ai_jpocr_venv) PS H:\vswork\Machinelearning\jpocr> python main.py
-
-## 测试
 ### 输入图片标准说明
 - 文件存放位置：jpocr\passport_imgs 
 - 护照的PDF扫描文档转图像，护照必须垂直或者水平
@@ -125,16 +122,21 @@ ai_jpocr_venv 虚拟环境
 - 文件存放位置：jpocr\passport_pdfs
 - 护照的PDF扫描文档，护照必须垂直或者水平
 
+### 运行代码
+
+    PS H:\vswork\Machinelearning\jpocr> ai_jpocr_venv\Scripts\activate
+    (ai_jpocr_venv) PS H:\vswork\Machinelearning\jpocr> python main.py
+
 ### 输出结果以及说明
 jpocr\output\
 
 | 文件名 | 说明 |
 | --- | --- |
-| *_pdf2png.png | PDF转PNG |
-| *_cut.png | 整体护照OCR识别结果 |
-| *_edited.png | 图像处理后的图像OCR识别结果 |
-| *_sign.png | 签名图像 |
-| data.json | 存放处理后的护照信息 |
+| images/*_pdf2png.png | PDF转PNG |
+| images/*_cut.png | 整体护照OCR识别结果 |
+| images/*_edited.png | 图像处理后的图像OCR识别结果 |
+| images/*_sign.png | 签名图像 |
+| *.json | 存放处理后的护照信息 |
 | text_imgs | 存放切割后的文字块的文件夹（目前没开放） |
 
 #### data.json
