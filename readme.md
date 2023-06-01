@@ -125,7 +125,7 @@ ai_jpocr_venv 虚拟环境
 
 ### 运行代码
 
-参数传入为：输入PDF文件夹 输入文件夹
+参数传入为：输入PDF文件夹 输出文件夹
 
     PS H:\vswork\Machinelearning\jpocr> ai_jpocr_venv\Scripts\activate
     (ai_jpocr_venv) PS H:\vswork\Machinelearning\jpocr> python main.py input_path output_path
