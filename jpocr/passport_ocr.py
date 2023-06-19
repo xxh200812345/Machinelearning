@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import json
 from passport import Passport
 from datetime import datetime
+from collections import Counter
 
 import pytesseract
 import os
@@ -240,10 +241,18 @@ def rect_set(img, data_list):
     return img_cv
 
 
-def get_keywords(data_list, img):
+def get_mask_rect(words, lines, img):
+    """
+    获取遮罩范围
+    words是单词为的ORC识别
+    lines是句子的ORC识别
+    """
+    # 获取图片的宽度和高度
+    height, width = img.shape[:2]
+
     passport_rect = None
     # 找到 PASSPORT
-    for data in data_list:
+    for data in words:
         rect = data.position
         text = data.content
         if text.strip() == "PASSPORT":
@@ -254,15 +263,13 @@ def get_keywords(data_list, img):
     if passport_rect == None:
         raise ValueError("PASSPORT关键字识别失败")
 
-    # 最大的字符串
-    max_data = None
     # 和PASSPORT最接近的字符串
     near_datas = []
     # PASSPORT的中轴线
     passport_mid_h = (passport_rect[0][1] + passport_rect[1][1]) / 2
     # PASSPORT的高
     passport_h = passport_rect[1][1] - passport_rect[0][1]
-    for data in data_list:
+    for data in words:
         rect = data.position
         text = data.content
         # 中轴线
@@ -277,12 +284,26 @@ def get_keywords(data_list, img):
         ):
             near_datas.append(data)
 
-        if max_data == None or len(text) > len(max_data.content):
-            max_data = data
+    # mrz
+    dict_array = []
+    for data in lines:
+        rect = data.position
+        text = data.content
 
-    print(f"max_data: {max_data}")
+        # 排除靠上的数据
+        if rect[0][1] < height * 0.75:
+            continue
+
+        dict_array.append({"text": text, "data": data})
+
+    sorted_array = sorted(dict_array, key=lambda x: len(x["text"]))
+    mrz2 = sorted_array[-2]["data"]
+    mrz1 = sorted_array[-1]["data"]
+
+    print(f"mrz1: {mrz1},mrz2: {mrz2}")
 
     p_rect = None
+    jpn_rect = None
     passportno_rect = None
     for data in near_datas:
         rect = data.position
@@ -295,34 +316,44 @@ def get_keywords(data_list, img):
             p_rect = data.position
             continue
 
+        if "jpn" in text.strip().lower() and len(text) < 5:
+            jpn_rect = data.position
+            continue
+
         if abs(len(text) - 9) < 3:
             passportno_rect = data.position
 
-    if p_rect == None:
-        raise ValueError("P关键字识别失败")
     if passportno_rect == None:
         raise ValueError("Passport No关键字识别失败")
 
-    ret = {"passport": passport_rect, "max_data": max_data}
-
-    # 获取图片的宽度和高度
-    height, width = img.shape[:2]
+    if p_rect == None:
+        ValueError("P关键字识别失败, 用jpn继续定位")
+        if jpn_rect == None:
+            raise ValueError("jpn关键字识别失败")
+        else:
+            # x1,y1 x2,y2
+            ((x1, y1), (x2, y2)) = jpn_rect
+            word_width = int((x2 - x1) / 3)
+            p_rect = (
+                (x1 - (passportno_rect[0][0] - x2) - word_width, y1),
+                (x1 - (passportno_rect[0][0] - x2), y2),
+            )
 
     # 创建一个全白色的遮罩，它的大小和原图一样
     mask = np.ones((height, width), dtype="uint8") * 255
 
     # 定义多边形顶点坐标
-    max_data_rect = max_data.position
-    max_data_h = max_data_rect[1][1] - max_data_rect[0][1]
+    mrz2_rect = mrz2.position
+    mrz1_rect = mrz1.position
     points = np.array(
         [
             [p_rect[0][0] - 2, passportno_rect[0][1] - 2],  # 左上
             [passportno_rect[1][0] + 2, passportno_rect[0][1] - 2],
-            [max_data_rect[1][0] + 2, passportno_rect[0][1] - 2],  # 右上
-            [max_data_rect[1][0] + 2, max_data_rect[1][1] + 2],
-            [max_data_rect[0][0] - 2, max_data_rect[1][1] + 2],
-            [max_data_rect[0][0] - 2, max_data_rect[1][1] - max_data_h * 3],
-            [p_rect[0][0] - 2, max_data_rect[1][1] - max_data_h * 3],
+            [mrz2_rect[1][0] + 2, passportno_rect[0][1] - 2],  # 右上
+            [mrz2_rect[1][0] + 2, mrz2_rect[1][1] + 2],  # 右下
+            [mrz1_rect[0][0] - 2, mrz2_rect[1][1] + 2],  # 左下
+            [mrz1_rect[0][0] - 2, mrz1_rect[0][1] - 2],
+            [p_rect[0][0] - 2, mrz1_rect[0][1] - 2],
         ],
         dtype=np.int32,
     )
@@ -337,8 +368,8 @@ def get_keywords(data_list, img):
 
     border = 2
     res = res[
-        passportno_rect[0][1] - border : max_data_rect[1][1] + border,
-        max_data_rect[0][0] - border : max_data_rect[1][0] + border,
+        passportno_rect[0][1] - border : mrz2_rect[1][1] + border,
+        mrz2_rect[0][0] - border : mrz2_rect[1][0] + border,
     ]
 
     print(f"有效数据图片大小：{res.shape}")
@@ -405,11 +436,20 @@ def minhash_similarity(str1, str2, num_hashes=100):
     return similarity
 
 
-# 获取识别文字的方向，并旋转图片，只能识别90 180 270
-def rotate_image_with_white_bg(image):
-    # 获取识别文字的位置信息
-    data = pytesseract.image_to_osd(image)
-    print(data)
+# 获取数组中出现次数最多的值
+def get_most_common_elements(array):
+    counter = Counter(array)
+    most_common = counter.most_common(1)
+    return most_common[0][0] if most_common else None
+
+
+# 获取识别文字的位置信息
+def get_text_location(image):
+    try:
+        data = pytesseract.image_to_osd(image)
+    except pytesseract.pytesseract.TesseractError:
+        return None
+    # print(data)
     # 从位置信息中提取文字方向
     lines = data.split("\n")
     angle = None
@@ -418,11 +458,39 @@ def rotate_image_with_white_bg(image):
             angle = float(line.split(":")[1].strip())
             break
 
-    if angle < 1:
-        return image
+    return angle
+
+
+# 获取识别文字的方向，并旋转图片，只能识别90 180 270
+def rotate_image_with_white_bg(image):
+    # 获取识别文字的位置信息
+    angle = []
+    data_list_word = ocr_by_key(image, "line", "jpn")
 
     # 获取图像尺寸
     height, width = image.shape[:2]
+
+    for data in data_list_word:
+        rect = data.position
+        text = data.content
+
+        if len(text) < 5:
+            continue
+
+        # 裁剪图像
+        border = 20
+        ((x1, y1), (x2, y2)) = rect
+        x1 = 0 if x1 - border < 0 else x1 - border
+        y1 = 0 if y1 - border < 0 else y1 - border
+        x2 = width if x2 + border > width else  x2 + border
+        y2 = height if y2 + border > height else  y2 + border
+        cropped_image = image[y1 : y2,x1 : x2]
+        # _imshow("",cropped_image)
+        item_angle = get_text_location(cropped_image)
+        if item_angle is not None:
+            angle.append(item_angle)
+
+    angle = get_most_common_elements(angle)
 
     # 计算旋转中心点
     center = (width // 2, height // 2)
@@ -825,14 +893,15 @@ def main(passport: Passport, _config_options: dict):
 
     # 使用切片操作截取图像的中心部分top:bottom, left:right
     thresh = thresh[int(y1 + (y2 - y1) / 2) : y2, x1:x2]
-    data_list = ocr_by_key(thresh, "word", "jpn")
+    data_list_word = ocr_by_key(thresh, "word", "jpn")
+    data_list_line = ocr_by_key(thresh, "line", "jpn")
     cut_img = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-    img_cv = rect_set(cut_img, data_list)
+    img_cv = rect_set(cut_img, data_list_line)
 
     plt.imsave(sample_cut_img_path, img_cv)
 
     # 获取数据范围
-    thresh = get_keywords(data_list, thresh)
+    thresh = get_mask_rect(data_list_word, data_list_line, thresh)
     # 缩放到固定高度600
     thresh = resize_image_by_height(thresh, 800)
 
