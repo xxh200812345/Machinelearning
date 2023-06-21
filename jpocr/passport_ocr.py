@@ -19,6 +19,7 @@ from collections import Counter
 
 import pytesseract
 import os
+import re
 
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
@@ -265,21 +266,19 @@ def get_mask_rect(words, lines, img):
 
     # 和PASSPORT最接近的字符串
     near_datas = []
-    # PASSPORT的中轴线
-    passport_mid_h = (passport_rect[0][1] + passport_rect[1][1]) / 2
-    # PASSPORT的高
-    passport_h = passport_rect[1][1] - passport_rect[0][1]
     for data in words:
         rect = data.position
         text = data.content
-        # 中轴线
-        data_mid_h = (rect[0][1] + rect[1][1]) / 2
-        # 高
-        data_h = rect[1][1] - rect[0][1]
 
+        # 提取矩形的上边界和下边界位置
+        rect_top = rect[0][1]
+        rect_bottom = rect[1][1]  # 下边界位置
+        passport_rect_top = passport_rect[0][1]
+        passport_rect_bottom = passport_rect[1][1]  # 上边界 + 高度
+
+        # 判断两个矩形是否在垂直方向上重叠，且在PASSPORT的后面
         if (
-            abs(data_mid_h - passport_mid_h) < passport_h
-            and passport_h < int(passport_h * 0.2) + data_h
+            (rect_bottom >= passport_rect_top and passport_rect_bottom >= rect_top)
             and passport_rect[1][0] < rect[1][0]
         ):
             near_datas.append(data)
@@ -291,7 +290,7 @@ def get_mask_rect(words, lines, img):
         text = data.content
 
         # 排除靠上的数据
-        if rect[0][1] < height * 0.75:
+        if rect[0][1] < height * 0.70:
             continue
 
         dict_array.append({"text": text, "data": data})
@@ -300,7 +299,8 @@ def get_mask_rect(words, lines, img):
     mrz2 = sorted_array[-2]["data"]
     mrz1 = sorted_array[-1]["data"]
 
-    print(f"mrz1: {mrz1},mrz2: {mrz2}")
+    print(f"mrz1: {mrz1.content},{mrz1.position}")
+    print(f"mrz2: {mrz2.content},{mrz2.position}")
 
     p_rect = None
     jpn_rect = None
@@ -320,7 +320,9 @@ def get_mask_rect(words, lines, img):
             jpn_rect = data.position
             continue
 
-        if abs(len(text) - 9) < 3:
+        pattern = r"^[a-zA-Z]{1,3}\d{6,8}$"
+        match = re.match(pattern, text.strip().lower())
+        if match:
             passportno_rect = data.position
 
     if passportno_rect == None:
@@ -345,15 +347,21 @@ def get_mask_rect(words, lines, img):
     # 定义多边形顶点坐标
     mrz2_rect = mrz2.position
     mrz1_rect = mrz1.position
+
+    broder = 2
+
+    mrz2_y2 = mrz2_rect[1][1] + broder if mrz2_rect[1][1] + broder < height else height
+    mrz1_x1 = mrz1_rect[0][0] - broder if mrz1_rect[0][0] - broder > 0 else 0
+
     points = np.array(
         [
-            [p_rect[0][0] - 2, passportno_rect[0][1] - 2],  # 左上
-            [passportno_rect[1][0] + 2, passportno_rect[0][1] - 2],
-            [mrz2_rect[1][0] + 2, passportno_rect[0][1] - 2],  # 右上
-            [mrz2_rect[1][0] + 2, mrz2_rect[1][1] + 2],  # 右下
-            [mrz1_rect[0][0] - 2, mrz2_rect[1][1] + 2],  # 左下
-            [mrz1_rect[0][0] - 2, mrz1_rect[0][1] - 2],
-            [p_rect[0][0] - 2, mrz1_rect[0][1] - 2],
+            [p_rect[0][0] - broder, passportno_rect[0][1] - broder],  # 左上
+            [passportno_rect[1][0] + broder, passportno_rect[0][1] - broder],
+            [mrz2_rect[1][0] + broder, passportno_rect[0][1] - broder],  # 右上
+            [mrz2_rect[1][0] + broder, mrz2_y2],  # 右下
+            [mrz1_x1, mrz2_y2],  # 左下
+            [mrz1_x1, mrz1_rect[0][1] - broder],
+            [p_rect[0][0] - broder, mrz1_rect[0][1] - broder],
         ],
         dtype=np.int32,
     )
@@ -367,9 +375,15 @@ def get_mask_rect(words, lines, img):
     res = cv2.bitwise_or(img, mask)
 
     border = 2
+
+    y1 = passportno_rect[0][1] - border if passportno_rect[0][1] - border > 0 else 0
+    y2 = mrz2_rect[1][1] + border if mrz2_rect[1][1] + border < height else height
+    x1 = mrz2_rect[0][0] - border if mrz2_rect[0][0] - border > 0 else 0
+    x2 = mrz2_rect[1][0] + border if mrz2_rect[1][0] + border < width else width
+
     res = res[
-        passportno_rect[0][1] - border : mrz2_rect[1][1] + border,
-        mrz2_rect[0][0] - border : mrz2_rect[1][0] + border,
+        y1:y2,
+        x1:x2,
     ]
 
     print(f"有效数据图片大小：{res.shape}")
@@ -482,9 +496,9 @@ def rotate_image_with_white_bg(image):
         ((x1, y1), (x2, y2)) = rect
         x1 = 0 if x1 - border < 0 else x1 - border
         y1 = 0 if y1 - border < 0 else y1 - border
-        x2 = width if x2 + border > width else  x2 + border
-        y2 = height if y2 + border > height else  y2 + border
-        cropped_image = image[y1 : y2,x1 : x2]
+        x2 = width if x2 + border > width else x2 + border
+        y2 = height if y2 + border > height else y2 + border
+        cropped_image = image[y1:y2, x1:x2]
         # _imshow("",cropped_image)
         item_angle = get_text_location(cropped_image)
         if item_angle is not None:
@@ -757,12 +771,44 @@ def add_error_to_info(info, error_msg):
     return info
 
 
+def clear_little_px(image):
+    """
+    清除独立小像素点
+    """
+
+    # 二值化处理
+    _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # 查找轮廓
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # 绘制矩形轮廓
+    new_contours = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        if w * h < 400 and h < 20:
+            new_contours.append(contour)
+
+    # 创建与原始图像相同大小的空白掩码
+    mask = np.zeros_like(image)
+
+    # 填充轮廓区域为白色
+    cv2.drawContours(mask, new_contours, -1, (255, 255, 255), thickness=cv2.FILLED)
+    result = cv2.bitwise_or(image, mask)
+
+    return result
+
+
 def set_vs_info(ret):
     main_info = ret["main_info"]
     mrz_info = ret["mrz_info"]
     vs_info = ret["vs_info"]
 
     for title, mrz_item in mrz_info.items():
+        if hasattr(main_info, title) == False:
+            main_info[title] = f"main_info中不存在这个属性"
+            continue
+
         if main_info[title][:5] == Passport.OUT_ERROR_TAG:
             error_msg = f"中间的信息项目存在错误"
             vs_info[title] = add_error_to_info(vs_info[title], error_msg)
@@ -867,6 +913,35 @@ def datalist2info(passport: Passport, data_list):
     return ret
 
 
+def fill_middle_with_white(image, style):
+    """
+    把图片的上下部分涂白
+    """
+
+    # 获取图像的尺寸
+    height, width = image.shape[:2]
+
+    if style == "下边涂白":
+        # 计算矩形区域的左上角和右下角坐标
+        top_left = (0, int(height * 0.6))
+        bottom_right = (width, height)
+    else:
+        # 计算矩形区域的左上角和右下角坐标
+        top_left = (0, 0)
+        bottom_right = (width, int(height * 0.4))
+
+    # 创建与原始图像大小相同的空白图像
+    mask = np.zeros_like(image)
+
+    # 在空白图像上绘制矩形区域为白色
+    cv2.rectangle(mask, top_left, bottom_right, (255, 255, 255), cv2.FILLED)
+
+    # 将矩形区域应用到原始图像上
+    result = cv2.bitwise_or(image, mask)
+
+    return result
+
+
 def main(passport: Passport, _config_options: dict):
     global config_options
 
@@ -893,10 +968,14 @@ def main(passport: Passport, _config_options: dict):
 
     # 使用切片操作截取图像的中心部分top:bottom, left:right
     thresh = thresh[int(y1 + (y2 - y1) / 2) : y2, x1:x2]
-    data_list_word = ocr_by_key(thresh, "word", "jpn")
+
+    thresh_OCR = fill_middle_with_white(thresh.copy(), "下边涂白")
+    data_list_word = ocr_by_key(thresh_OCR, "word", "jpn")
+
     data_list_line = ocr_by_key(thresh, "line", "jpn")
+
     cut_img = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-    img_cv = rect_set(cut_img, data_list_line)
+    img_cv = rect_set(cut_img, data_list_word)
 
     plt.imsave(sample_cut_img_path, img_cv)
 
@@ -938,6 +1017,7 @@ def main(passport: Passport, _config_options: dict):
 
     # 遮罩外涂白
     img = mask_fill_white(thresh, mask)
+    img = clear_little_px(img)
 
     # OCR
     data_list = ocr_by_key(img, "word", "num_1")
@@ -948,6 +1028,7 @@ def main(passport: Passport, _config_options: dict):
 
     # 存储OCR结果图片
     img_cv = rect_set(cut_img, data_list)
+    # img_cv = cut_img
     plt.imsave(sample_edited_img_path, img_cv)
 
 
