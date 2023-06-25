@@ -25,45 +25,45 @@ import random
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
 
-# 返回非空白区域范围
-def calc_row_and_col_sum(img):
-    # 计算每行的值
-    row_sum = np.sum(img, axis=1)
+# # 返回非空白区域范围
+# def calc_row_and_col_sum(img):
+#     # 计算每行的值
+#     row_sum = np.sum(img, axis=1)
 
-    # 找到出现次数最多的值
-    max_val = np.max(row_sum)
+#     # 找到出现次数最多的值
+#     max_val = np.max(row_sum)
 
-    # 行值数组减去出现次数最多的值
-    row_sum = max_val - row_sum
+#     # 行值数组减去出现次数最多的值
+#     row_sum = max_val - row_sum
 
-    # 创建一个布尔数组，指示哪些元素大于 99999
-    mask = row_sum > 9999
+#     # 创建一个布尔数组，指示哪些元素大于 99999
+#     mask = row_sum > 9999
 
-    # 使用布尔索引和 np.where() 函数找到满足条件的行号
-    row_numbers = np.where(mask)[0]
+#     # 使用布尔索引和 np.where() 函数找到满足条件的行号
+#     row_numbers = np.where(mask)[0]
 
-    # 计算每列的值
-    col_sum = np.sum(img, axis=0)
+#     # 计算每列的值
+#     col_sum = np.sum(img, axis=0)
 
-    # 找到出现次数最多的值
-    max_val = np.max(col_sum)
+#     # 找到出现次数最多的值
+#     max_val = np.max(col_sum)
 
-    # 列值数组减去出现次数最多的值
-    col_sum = max_val - col_sum
+#     # 列值数组减去出现次数最多的值
+#     col_sum = max_val - col_sum
 
-    # 创建一个布尔数组，指示哪些元素大于 8888
-    mask = col_sum > 9999
+#     # 创建一个布尔数组，指示哪些元素大于 8888
+#     mask = col_sum > 9999
 
-    # 使用布尔索引和 np.where() 函数找到满足条件的列号
-    col_numbers = np.where(mask)[0]
+#     # 使用布尔索引和 np.where() 函数找到满足条件的列号
+#     col_numbers = np.where(mask)[0]
 
-    # 返回矩形范围
-    return (
-        col_numbers.min(),
-        row_numbers.min(),
-        col_numbers.max(),
-        row_numbers.max() + 20,
-    )
+#     # 返回矩形范围
+#     return (
+#         col_numbers.min(),
+#         row_numbers.min(),
+#         col_numbers.max(),
+#         row_numbers.max() + 20,
+#     )
 
 
 # 固定色阶
@@ -98,37 +98,6 @@ def color_scale_display(img, Shadow=0, Highlight=255, Midtones=1):
     # 转类型
     img = np.array(img, dtype=np.uint8)
     return img
-
-
-# 去除图片周围边框
-def crop_image(img, key):
-    # 获取图像的尺寸
-    height, width, channels = img.shape
-
-    # 计算截取的左、右、上、下边界
-    left = key
-    right = width - key
-    top = key
-    bottom = height - key
-
-    # 使用切片操作截取图像的中心部分
-    center = img[top:bottom, left:right]
-
-    # 返回裁剪后的图像
-    return center
-
-
-def crop_image2(img, border_width):
-    '''
-    图片周围边框涂白
-    '''
-
-    # 创建一个白色边框
-    border_color = (255, 255, 255)  # 白色
-    border = cv2.copyMakeBorder(img, border_width, border_width, border_width, border_width, cv2.BORDER_CONSTANT, value=border_color)
-
-    return border
-
 
 # 设置tessract入口程序安装位置
 def set_tessract_app():
@@ -373,7 +342,7 @@ def get_mask_rect(words, lines, img):
     mrz2_rect = mrz2.position
     mrz1_rect = mrz1.position
 
-    broder = 2
+    broder = 10
 
     mrz2_y2 = mrz2_rect[1][1] + broder if mrz2_rect[1][1] + broder < height else height
     mrz1_x1 = mrz1_rect[0][0] - broder if mrz1_rect[0][0] - broder > 0 else 0
@@ -554,9 +523,8 @@ def rotate_image_with_white_bg(image):
     return rotated_image
 
 
-def _imshow(title, img, scale_percent = 50):
-
-      # 缩小比例
+def _imshow(title, img, scale_percent=50):
+    # 缩小比例
     width = int(img.shape[1] * scale_percent / 100)
     height = int(img.shape[0] * scale_percent / 100)
     resized_image = cv2.resize(img, (width, height))
@@ -910,13 +878,6 @@ def datalist2info(passport: Passport, data_list):
 
     ret["ocr_texts"] = ocr_texts
 
-    # for i, data in enumerate(data_list):
-    #     rect = data.position
-    #     text = data.content
-    #     ((x1, y1), (x2, y2)) = rect
-    #     rect_center = (int(x1 + x2) / 2, int(y1 + y2) / 2)
-    #     print(f"'{PASSPORT_TITLES[i]}' , {rect_center}")
-
     error_vals = 0
     for key, value in Passport.PASSPORT_KEYS_POSITION.items():
         for data in data_list:
@@ -953,7 +914,7 @@ def fill_middle_with_white(image, style):
 
     if style == "下边涂白":
         # 计算矩形区域的左上角和右下角坐标
-        top_left = (0, int(height * 0.4))
+        top_left = (0, int(height * 0.6))
         bottom_right = (width, height)
     else:
         # 计算矩形区域的左上角和右下角坐标
@@ -972,6 +933,64 @@ def fill_middle_with_white(image, style):
     return result
 
 
+def test(passport: Passport):
+    # # 使用PIL库打开图像文件
+    # pil_image = Image.open(sample_img_path)
+    # img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+
+    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # thresh = color_scale_display(gray, 112, 217, 0.97)
+
+    # # 获取识别文字的方向，并旋转图片，只能识别90 180 270
+    # thresh = rotate_image_with_white_bg(thresh)
+
+    # 使用PIL库打开图像文件
+    pil_image = Image.open("to_rotate" + "\\" + passport.file_name + "_rotate.png")
+    thresh = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
+
+    # MZR
+    data_list_line = ocr_by_key(thresh, "line", "jpn")
+
+    data_list = [data for data in data_list_line if len(data.content) > 5]
+
+    mrz_datas = []
+    for data in data_list:
+        text = data.content
+
+        pattern = r".*[<くぐ]{2}.*[<くぐ]{2}.*"
+        match = re.match(pattern, text.strip().upper())
+        if match:
+            mrz_datas.append(data)
+
+    for data in mrz_datas:
+        print(f"{data.content},{data.position}")
+
+    data_list_line = ocr_by_key(thresh, "line", "jpn")
+
+    mrz_1 = mrz_datas[0].position
+    mrz_2 = mrz_datas[1].position
+
+    mrz_h = mrz_2[1][1] - mrz_1[0][1]
+    mrz_t = mrz_1
+    if mrz_t[0][0] < mrz_2[0][0]:
+        mrz_t = mrz_2
+
+    # 获得图片
+    thresh = thresh[
+        mrz_2[1][1] - mrz_h * 8 : mrz_2[1][1], mrz_t[0][0] - 5 : mrz_t[1][0] + 5
+    ]
+
+    # 存储OCR结果图片
+    data_list_line = ocr_by_key(thresh, "line", "jpn")
+    img_cv = rect_set(cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR), data_list_line)
+
+    plt.imsave(
+        "to_init" + "\\" + passport.file_name + "_init.png",
+        cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR),
+    )
+    plt.imsave("to_init" + "\\" + passport.file_name + "_init_ocr.png", img_cv)
+
+
 def main(passport: Passport, _config_options: dict):
     global config_options
 
@@ -983,24 +1002,81 @@ def main(passport: Passport, _config_options: dict):
     # 使用PIL库打开图像文件
     pil_image = Image.open(sample_img_path)
     img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    # img = cv2.imread(os.path.abspath(sample_img_path))
 
-    # 裁切30px不需要的部分,返回处理后的
-    del_img = crop_image(img, int(img.shape[1]*0.03))
-
-    # 获取识别文字的方向，并旋转图片，只能识别90 180 270
-    del_img = rotate_image_with_white_bg(del_img)
-
-    gray = cv2.cvtColor(del_img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     thresh = color_scale_display(gray, 112, 217, 0.97)
 
-    x1, y1, x2, y2 = calc_row_and_col_sum(thresh)
+    # 获取识别文字的方向，并旋转图片，只能识别90 180 270
+    thresh = rotate_image_with_white_bg(thresh)
 
-    # 使用切片操作截取图像的中心部分top:bottom, left:right
-    thresh = thresh[int(y1 + (y2 - y1) / 2) : y2, x1:x2]
-
-    # pil_image = Image.open("to_init" + "\\" + passport.file_name + "thresh.png")
+    # pil_image = Image.open("to_rotate" + "\\" + passport.file_name + "_rotate.png")
     # thresh = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
+
+    data_list_line = ocr_by_key(thresh, "line", "jpn")
+    data_list = [data for data in data_list_line if len(data.content) > 5]
+
+    # MZR
+    mrz_datas = []
+    for data in data_list:
+        text = data.content
+
+        pattern = r".*[<くぐ]{2}.*[<くぐ]{2}.*"
+        match = re.match(pattern, text.strip().upper())
+        if match:
+            mrz_datas.append(data)
+
+    for data in mrz_datas:
+        print(f"{data.content},{data.position}")
+
+    # passport
+    passport_data = None
+    passport_cnt = 0
+    patterns = [
+        r".*旅券 .*",
+        r".* PASSP[O0]RT .*",
+        r".* .?P .*",
+        r".* JPN .*",
+        r".* [a-zA-Z]{1,3}\d{6,8}$ .*",
+    ]
+    for data in data_list:
+        text = data.content
+        passport_cnt = 0
+
+        for pattern in patterns:
+            match = re.match(pattern, text.strip().upper())
+            if match:
+                passport_cnt += 1
+
+        if passport_cnt >= 2:
+            passport_data = data
+            break
+
+    if passport_data:
+        print(
+            f"passport行命中率：{round(passport_cnt/len(patterns),2)},{passport_data.content}"
+        )
+    else:
+        print(f"passport行未命中率：{round(passport_cnt/len(patterns),2)}")
+
+    data_list_line = ocr_by_key(thresh, "line", "jpn")
+
+    mrz_1 = mrz_datas[0].position
+    mrz_2 = mrz_datas[1].position
+
+    mrz_t = mrz_1
+    if mrz_t[0][0] < mrz_2[0][0]:
+        mrz_t = mrz_2
+
+    # 获得图片
+    if passport_data:
+        y1 = passport_data.position[0][1]- 5 
+    else:
+        y1 = mrz_2[1][1] - (mrz_2[1][1] - mrz_2[0][1]) * 25
+
+    thresh = thresh[
+        y1: mrz_2[1][1],
+        mrz_t[0][0] - 5 : mrz_t[1][0] + 5,
+    ]
 
     thresh_OCR = fill_middle_with_white(thresh.copy(), "下边涂白")
 
@@ -1052,26 +1128,69 @@ def main(passport: Passport, _config_options: dict):
     # 遮罩外涂白
     img = mask_fill_white(thresh, mask)
     img = clear_little_px(img)
+    img = add_border_to_grayscale_image(img,100)
 
     # OCR
     data_list = ocr_by_key(img, "word", "num_1")
+
+    dict_array = []
+    top_data = None
+    for data in data_list:
+        rect = data.position
+        text = data.content
+
+        if top_data :
+            if top_data.position[0][1] > rect[0][1]:
+                top_data = data
+        else:
+            top_data = data
+
+        # 排除靠上的数据
+        if rect[0][1] < height * 0.70:
+            continue
+
+        dict_array.append({"text": text, "data": data})
+
+    sorted_array = sorted(dict_array, key=lambda x: len(x["text"]))
+    mrz2 = sorted_array[-2]["data"]
+    mrz1 = sorted_array[-1]["data"]
+
+    y1 = top_data.position[0][1] - 62
+    x1 = min(mrz1.position[0][0],mrz2.position[0][0]) - 54
+
+    class Ocr_ret:
+        def __init__(self, position, content):
+            self.position = position
+            self.content = content
+
+    _data_list = []
+    for data in data_list:
+        rect = data.position
+        text = data.content
+
+        _rect = ((rect[0][0] - x1,rect[0][1] - y1),(rect[1][0] - x1,rect[1][1] - y1))
+
+        _data_list.append(Ocr_ret(_rect,text))
+
+    height, width = img.shape[:2]
+    img = img[y1:height,x1:width]
+
     cut_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-    # 获取护照信息
-    passport.info = datalist2info(passport, data_list)
-
     # 存储OCR结果图片
-    img_cv = rect_set(cut_img, data_list)
+    img_cv = rect_set(cut_img, _data_list)
     # img_cv = cut_img
     plt.imsave(sample_edited_img_path, img_cv)
 
+    # 获取护照信息
+    passport.info = datalist2info(passport, _data_list)
 
 def run(passport: Passport, _config_options: dict):
     try:
         main(passport, _config_options)
     except Exception as e:
         # 捕获异常并打印错误信息
-        print("发生错误:", str(e))
+        print(f"发生错误 {passport.file_name}:", str(e))
 
         ret = passport.info
         ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))

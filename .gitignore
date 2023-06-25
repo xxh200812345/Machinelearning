@@ -10,3 +10,5 @@ jpocr/passport_pdfs/
 jpocr/build/
 chatglm-6b/
 to_init/
+to_pdf/
+to_rotate/
