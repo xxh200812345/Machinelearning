@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import pyocr
 import pyocr.builders
 import cv2
@@ -20,6 +20,7 @@ from collections import Counter
 import pytesseract
 import os
 import re
+import random
 
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
@@ -115,6 +116,18 @@ def crop_image(img, key):
 
     # 返回裁剪后的图像
     return center
+
+
+def crop_image2(img, border_width):
+    '''
+    图片周围边框涂白
+    '''
+
+    # 创建一个白色边框
+    border_color = (255, 255, 255)  # 白色
+    border = cv2.copyMakeBorder(img, border_width, border_width, border_width, border_width, cv2.BORDER_CONSTANT, value=border_color)
+
+    return border
 
 
 # 设置tessract入口程序安装位置
@@ -256,7 +269,13 @@ def get_mask_rect(words, lines, img):
     for data in words:
         rect = data.position
         text = data.content
-        if text.strip() == "PASSPORT":
+
+        if rect[0][0] > width / 2 or rect[0][1] > height / 2:
+            continue
+
+        pattern = r"PASSP[O0o]RT"
+        match = re.match(pattern, text.strip().upper())
+        if match:
             passport_rect = rect
             print(data)
             break
@@ -276,11 +295,17 @@ def get_mask_rect(words, lines, img):
         passport_rect_top = passport_rect[0][1]
         passport_rect_bottom = passport_rect[1][1]  # 上边界 + 高度
 
+        rect_h = rect_bottom - rect_top
+        passport_rect_h = passport_rect_bottom - passport_rect_top
+        max_h = max(
+            abs(rect_top - passport_rect_bottom), abs(rect_bottom - passport_rect_top)
+        )
+
+        if "JPN" in text:
+            print(text)
+
         # 判断两个矩形是否在垂直方向上重叠，且在PASSPORT的后面
-        if (
-            (rect_bottom >= passport_rect_top and passport_rect_bottom >= rect_top)
-            and passport_rect[1][0] < rect[1][0]
-        ):
+        if max_h < rect_h + passport_rect_h and passport_rect[1][0] < rect[1][0]:
             near_datas.append(data)
 
     # mrz
@@ -320,7 +345,7 @@ def get_mask_rect(words, lines, img):
             jpn_rect = data.position
             continue
 
-        pattern = r"^[a-zA-Z]{1,3}\d{6,8}$"
+        pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
         match = re.match(pattern, text.strip().lower())
         if match:
             passportno_rect = data.position
@@ -484,12 +509,11 @@ def rotate_image_with_white_bg(image):
     # 获取图像尺寸
     height, width = image.shape[:2]
 
-    for data in data_list_word:
-        rect = data.position
-        text = data.content
+    # 使用列表推导式筛选出长度大于 5 的对象
+    _data_list_word = [data for data in data_list_word if len(data.content) > 5]
 
-        if len(text) < 5:
-            continue
+    for data in random.sample(_data_list_word, 20):
+        rect = data.position
 
         # 裁剪图像
         border = 20
@@ -530,9 +554,15 @@ def rotate_image_with_white_bg(image):
     return rotated_image
 
 
-def _imshow(title, img):
+def _imshow(title, img, scale_percent = 50):
+
+      # 缩小比例
+    width = int(img.shape[1] * scale_percent / 100)
+    height = int(img.shape[0] * scale_percent / 100)
+    resized_image = cv2.resize(img, (width, height))
+
     # if debug_mode == True:
-    cv2.imshow(title, img)
+    cv2.imshow(title, resized_image)
     cv2.waitKey(0)  # 等待用户按下键盘上的任意键
     cv2.destroyAllWindows()  # 关闭所有cv2.imshow窗口
 
@@ -923,7 +953,7 @@ def fill_middle_with_white(image, style):
 
     if style == "下边涂白":
         # 计算矩形区域的左上角和右下角坐标
-        top_left = (0, int(height * 0.6))
+        top_left = (0, int(height * 0.4))
         bottom_right = (width, height)
     else:
         # 计算矩形区域的左上角和右下角坐标
@@ -956,7 +986,7 @@ def main(passport: Passport, _config_options: dict):
     # img = cv2.imread(os.path.abspath(sample_img_path))
 
     # 裁切30px不需要的部分,返回处理后的
-    del_img = crop_image(img, 30)
+    del_img = crop_image(img, int(img.shape[1]*0.03))
 
     # 获取识别文字的方向，并旋转图片，只能识别90 180 270
     del_img = rotate_image_with_white_bg(del_img)
@@ -969,7 +999,11 @@ def main(passport: Passport, _config_options: dict):
     # 使用切片操作截取图像的中心部分top:bottom, left:right
     thresh = thresh[int(y1 + (y2 - y1) / 2) : y2, x1:x2]
 
+    # pil_image = Image.open("to_init" + "\\" + passport.file_name + "thresh.png")
+    # thresh = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
+
     thresh_OCR = fill_middle_with_white(thresh.copy(), "下边涂白")
+
     data_list_word = ocr_by_key(thresh_OCR, "word", "jpn")
 
     data_list_line = ocr_by_key(thresh, "line", "jpn")

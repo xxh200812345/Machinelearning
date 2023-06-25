@@ -3,8 +3,8 @@ import os
 
 # 护照对象
 class Passport:
-    def __init__(self, file_name):
-        name, ext = os.path.splitext(file_name)
+    def __init__(self, file_path):
+        name, ext = os.path.splitext(os.path.basename(file_path))
         # 护照文件名
         self.file_name = name
         # PDF转PNG后保存文件名

@@ -9,6 +9,7 @@ from passport import Passport
 import os
 import sys
 import shutil
+import time
 
 import glob
 import tkinter
@@ -116,33 +117,51 @@ if __name__ == "__main__":
         paths += os.listdir(passport_pdfs_dir)
 
     # 遍历文件夹下所有文件
+    pdf_paths = []
+
     for file_name in paths:
         if file_name.endswith(".pdf"):
-            # if("中島敏壽様　パスポート" not in file_name):
-            #     continue
+            pdf_paths.append(file_name)
 
-            print(f"开始处理:{passport_pdfs_dir}/{file_name}")
+        # # 如果是图片文件，则打印文件名
+        # if (
+        #     file_name.endswith(".jpg")
+        #     or file_name.endswith(".jpeg")
+        #     or file_name.endswith(".png")
+        # ):
+        #     print(f"开始处理JPG:{passport_imgs_dir}/{file_name}")
+        #     passport = Passport(file_name)
+        #     passport_ocr.run(passport, config_options)
+        #     passport_list.append(passport)
 
-            passport = Passport(file_name)
+    # 处理时间
+    s_time = 0
 
-            # 使用PyMuPDF库将页面转换为图像
-            pix = pdf2img.pdf_page_to_image(f"{passport_pdfs_dir}/{file_name}")
-            # 保存图像
-            pdf2img.save_pix2png(pix, passport.pdf2png_file_name, output_dir)
-            passport_ocr.run(passport, config_options)
+    for index, file_name in enumerate(pdf_files):
+        # 记录开始时间
+        start_time = time.time()
 
-            passport_list.append(passport)
+        passport = Passport(file_name)
+        print(f"开始处理PDF ({index+1}/{len(pdf_files)}):{file_name}")
 
-        # 如果是图片文件，则打印文件名
-        if (
-            file_name.endswith(".jpg")
-            or file_name.endswith(".jpeg")
-            or file_name.endswith(".png")
-        ):
-            print(f"开始处理:{passport_imgs_dir}/{file_name}")
-            passport = Passport(file_name)
-            passport_ocr.run(passport, config_options)
-            passport_list.append(passport)
+        # 使用PyMuPDF库将页面转换为图像
+        pix = pdf2img.pdf_page_to_image(f"{file_name}")
+        # 保存图像
+        pdf2img.save_pix2png(pix, output_dir, passport)
+        passport_ocr.run(passport, config_options)
+
+        passport_list.append(passport)
+
+        # 记录函数结束时间
+        end_time = time.time()
+        # 计算函数运行时间
+        run_time = end_time - start_time
+        s_time += run_time
+
+        print(f"处理完成，用时{round(run_time, 2)}秒\n")
 
     # 识别后数据输出到文本文件中
     passport_ocr.output_data2text_file(passport_list, config_options)
+    print(
+        f"全部处理完成，一共{len(pdf_files)}件，总用时{round(s_time, 2)}秒，平均用时{round(s_time/len(pdf_files), 2)}秒"
+    )
