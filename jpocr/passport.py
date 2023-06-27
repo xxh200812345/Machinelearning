@@ -60,19 +60,19 @@ class Passport:
         foot2: 44,
     }
     PASSPORT_KEYS_POSITION = {
-        Type: (428.0, 67.0),
-        Issuing_country: (640.0, 66.0),
-        Passport_No: (981.0, 62.5),
-        Surname: (480.5, 136.0),
-        Given_name: (492.0, 205.5),
-        Nationality: (480.5, 275.5),
-        Date_of_birth: (770.0, 276.0),
-        Sex: (426.5, 345.0),
-        Registered_Domicile: (689.5, 345.0),
-        Date_of_issue: (558.5, 415.5),
-        Date_of_expiry: (557.5, 485.0),
-        foot1: (624.5, 670.0),
-        foot2: (624.5, 737.5),
+        Type: ((423, 59), (442, 86)),
+        Issuing_country: ((614, 58), (686, 86)),
+        Passport_No: ((872, 52), (1103, 84)),
+        Surname: ((425, 129), (497, 158)),
+        Given_name: ((424, 200), (631, 229)),
+        Nationality: ((425, 271), (551, 300)),
+        Date_of_birth: ((642, 271), (929, 302)),
+        Sex: ((423, 343), (442, 371)),
+        Registered_Domicile: ((641, 342), (848, 371)),
+        Date_of_issue: ((425, 413), (713, 445)),
+        Date_of_expiry: ((425, 485), (713, 517)),
+        foot1: ((45, 675), (1228, 705)),
+        foot2: ((44, 743), (1228, 776)),
     }
 
     PASSPORT_MRZ1_POSITION = {

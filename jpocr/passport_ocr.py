@@ -99,6 +99,7 @@ def color_scale_display(img, Shadow=0, Highlight=255, Midtones=1):
     img = np.array(img, dtype=np.uint8)
     return img
 
+
 # 设置tessract入口程序安装位置
 def set_tessract_app():
     # 获取操作系统名称及版本号
@@ -615,24 +616,36 @@ def output_data2text_file(passport_list, _config_options: dict):
             json.dump(passport.info, f, ensure_ascii=False)
 
 
-def is_point_in_rect(point, rect):
+def is_ocr_data_in_rect(normal_rect, ocr_data_rect):
     """
-    判断点是否在矩形区域内
+    判断orc数据是否在标准矩形区域内
 
     参数:
-    - point: 一个包含两个元素的元组或列表，表示点的坐标 (x, y)
-    - rect: 一个包含四个元素的元组或列表，表示矩形的坐标 (x1, y1, x2, y2)
+    - normal_rect: 一个包含四个元素的元组或列表，表示点的坐标 (x1, y1, x2, y2)
+    - ocr_data_rect: 一个包含四个元素的元组或列表，表示矩形的坐标 (x1, y1, x2, y2)
 
     返回值:
     - 如果点在矩形区域内，则返回 True，否则返回 False
     """
-    (x, y) = point
-    ((x1, y1), (x2, y2)) = rect
+    normal_area = (normal_rect[1][0] - normal_rect[0][0]) * (
+        normal_rect[1][1] - normal_rect[0][1]
+    )  # 计算正常矩形的面积
 
-    if x1 <= x <= x2 and y1 <= y <= y2:
-        return True
-    else:
-        return False
+    intersection_x = max(
+        0,
+        min(normal_rect[1][0], ocr_data_rect[1][0])
+        - max(normal_rect[0][0], ocr_data_rect[0][0]),
+    )  # 计算交集的宽度
+    intersection_y = max(
+        0,
+        min(normal_rect[1][1], ocr_data_rect[1][1])
+        - max(normal_rect[0][1], ocr_data_rect[0][1]),
+    )  # 计算交集的高度
+    intersection_area = intersection_x * intersection_y  # 计算交集的面积
+
+    overlap_percentage = (intersection_area / normal_area) * 100  # 计算重叠的百分比
+
+    return overlap_percentage >= 30
 
 
 def check_len(ret):
@@ -803,7 +816,7 @@ def set_vs_info(ret):
     vs_info = ret["vs_info"]
 
     for title, mrz_item in mrz_info.items():
-        if hasattr(main_info, title) == False:
+        if title in main_info == False:
             main_info[title] = f"main_info中不存在这个属性"
             continue
 
@@ -883,7 +896,8 @@ def datalist2info(passport: Passport, data_list):
         for data in data_list:
             rect = data.position
             text = data.content
-            if is_point_in_rect(value, rect):
+
+            if is_ocr_data_in_rect(value, rect):
                 ret[key] = text
                 break
 
@@ -893,6 +907,7 @@ def datalist2info(passport: Passport, data_list):
 
     if error_vals > 0:
         err_msg = f"一共有{error_vals}个数据没有找到对应值。"
+        print(err_msg)
         ret["err_msg"] = add_error_to_info(ret["err_msg"], err_msg)
 
     # 根据基础信息生成三个对象，对象main_info保存护照主要信息，对象mrz_info保存下方mrz分解后的信息，对象vs_info保存对比信息
@@ -1069,12 +1084,12 @@ def main(passport: Passport, _config_options: dict):
 
     # 获得图片
     if passport_data:
-        y1 = passport_data.position[0][1]- 5 
+        y1 = passport_data.position[0][1] - 5
     else:
         y1 = mrz_2[1][1] - (mrz_2[1][1] - mrz_2[0][1]) * 25
 
     thresh = thresh[
-        y1: mrz_2[1][1],
+        y1 : mrz_2[1][1],
         mrz_t[0][0] - 5 : mrz_t[1][0] + 5,
     ]
 
@@ -1128,7 +1143,7 @@ def main(passport: Passport, _config_options: dict):
     # 遮罩外涂白
     img = mask_fill_white(thresh, mask)
     img = clear_little_px(img)
-    img = add_border_to_grayscale_image(img,100)
+    img = add_border_to_grayscale_image(img, 100)
 
     # OCR
     data_list = ocr_by_key(img, "word", "num_1")
@@ -1139,7 +1154,7 @@ def main(passport: Passport, _config_options: dict):
         rect = data.position
         text = data.content
 
-        if top_data :
+        if top_data:
             if top_data.position[0][1] > rect[0][1]:
                 top_data = data
         else:
@@ -1155,8 +1170,8 @@ def main(passport: Passport, _config_options: dict):
     mrz2 = sorted_array[-2]["data"]
     mrz1 = sorted_array[-1]["data"]
 
-    y1 = top_data.position[0][1] - 62
-    x1 = min(mrz1.position[0][0],mrz2.position[0][0]) - 54
+    y1 = top_data.position[0][1] - 52
+    x1 = min(mrz1.position[0][0], mrz2.position[0][0]) - 44
 
     class Ocr_ret:
         def __init__(self, position, content):
@@ -1168,12 +1183,12 @@ def main(passport: Passport, _config_options: dict):
         rect = data.position
         text = data.content
 
-        _rect = ((rect[0][0] - x1,rect[0][1] - y1),(rect[1][0] - x1,rect[1][1] - y1))
+        _rect = ((rect[0][0] - x1, rect[0][1] - y1), (rect[1][0] - x1, rect[1][1] - y1))
 
-        _data_list.append(Ocr_ret(_rect,text))
+        _data_list.append(Ocr_ret(_rect, text))
 
     height, width = img.shape[:2]
-    img = img[y1:height,x1:width]
+    img = img[y1:height, x1:width]
 
     cut_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
@@ -1184,6 +1199,7 @@ def main(passport: Passport, _config_options: dict):
 
     # 获取护照信息
     passport.info = datalist2info(passport, _data_list)
+
 
 def run(passport: Passport, _config_options: dict):
     try:
