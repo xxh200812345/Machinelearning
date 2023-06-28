@@ -21,6 +21,7 @@ import pytesseract
 import os
 import re
 import random
+import difflib
 
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
@@ -225,6 +226,26 @@ def rect_set(img, data_list):
     return img_cv
 
 
+def merge_rectangles(rect1, rect2):
+    """
+    合并矩形
+    """
+    x1 = min(rect1[0][0], rect2[0][0])
+    y1 = min(rect1[0][1], rect2[0][1])
+    x2 = max(rect1[1][0], rect2[1][0])
+    y2 = max(rect1[1][1], rect2[1][1])
+    merged_rect = ((x1, y1), (x2, y2))
+    return merged_rect
+
+
+def check_similarity(string, pattern, similarity_threshold=0.6):
+    """
+    相似度规则，并使用正则表达式模式进行匹配
+    """
+    similarity = difflib.SequenceMatcher(None, string, pattern).ratio()
+    return similarity >= similarity_threshold
+
+
 def get_mask_rect(words, lines, img):
     """
     获取遮罩范围
@@ -243,11 +264,11 @@ def get_mask_rect(words, lines, img):
         if rect[0][0] > width / 2 or rect[0][1] > height / 2:
             continue
 
-        pattern = r"PASSP[O0o]RT"
-        match = re.match(pattern, text.strip().upper())
-        if match:
+        if check_similarity(text.strip().lower(), r"passport", 0.7):
             passport_rect = rect
-            print(data)
+
+            if debug_mode:
+                print(data)
             break
 
     if passport_rect == None:
@@ -271,9 +292,6 @@ def get_mask_rect(words, lines, img):
             abs(rect_top - passport_rect_bottom), abs(rect_bottom - passport_rect_top)
         )
 
-        if "JPN" in text:
-            print(text)
-
         # 判断两个矩形是否在垂直方向上重叠，且在PASSPORT的后面
         if max_h < rect_h + passport_rect_h and passport_rect[1][0] < rect[1][0]:
             near_datas.append(data)
@@ -294,8 +312,9 @@ def get_mask_rect(words, lines, img):
     mrz2 = sorted_array[-2]["data"]
     mrz1 = sorted_array[-1]["data"]
 
-    print(f"mrz1: {mrz1.content},{mrz1.position}")
-    print(f"mrz2: {mrz2.content},{mrz2.position}")
+    if debug_mode:
+        print(f"mrz1: {mrz1.content},{mrz1.position}")
+        print(f"mrz2: {mrz2.content},{mrz2.position}")
 
     p_rect = None
     jpn_rect = None
@@ -304,14 +323,17 @@ def get_mask_rect(words, lines, img):
         rect = data.position
         text = data.content
 
-        # if debug_mode:
-        print(f"{text}: {rect}")
+        if debug_mode:
+            print(f"{text}: {rect}")
 
         if "p" in text.strip().lower() and len(text) < 3:
             p_rect = data.position
             continue
 
         if "jpn" in text.strip().lower() and len(text) < 5:
+            jpn_rect = data.position
+            continue
+        elif check_similarity(text.strip().lower(), r"jpn"):
             jpn_rect = data.position
             continue
 
@@ -321,7 +343,36 @@ def get_mask_rect(words, lines, img):
             passportno_rect = data.position
 
     if passportno_rect == None:
-        raise ValueError("Passport No关键字识别失败")
+        # 如果检测结果过于分离，尝试合并一下看
+        if jpn_rect:
+            passportno_data_temps = []
+            for data in near_datas:
+                rect = data.position
+                text = data.content
+
+                if rect[0][0] > jpn_rect[1][0]:
+                    passportno_data_temps.append(data)
+
+            sorted_array = sorted(
+                passportno_data_temps, key=lambda x: data.position[0][0]
+            )
+            passportno_text = ""
+            passportno_rect_temp = None
+            for data in sorted_array:
+                rect = data.position
+                text = data.content
+                passportno_text += text
+                if passportno_rect_temp:
+                    passportno_rect_temp = merge_rectangles(passportno_rect_temp, rect)
+                else:
+                    passportno_rect_temp = rect
+
+            pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
+            match = re.match(pattern, passportno_text.strip().lower())
+            if match:
+                passportno_rect = passportno_rect_temp
+            else:
+                raise ValueError("Passport No关键字识别失败")
 
     if p_rect == None:
         ValueError("P关键字识别失败, 用jpn继续定位")
@@ -381,7 +432,8 @@ def get_mask_rect(words, lines, img):
         x1:x2,
     ]
 
-    print(f"有效数据图片大小：{res.shape}")
+    if debug_mode:
+        print(f"有效数据图片大小：{res.shape}")
 
     border = int(height * 0.05)
     res = add_border_to_grayscale_image(res, border)
@@ -470,6 +522,19 @@ def get_text_location(image):
     return angle
 
 
+def uniform_sampling(data, sample_size):
+    """
+    在一个数组中均匀抽取sample_size条数据
+    """
+    n = len(data)
+    if sample_size >= n:
+        return data
+    else:
+        step = n // sample_size
+        sampled_data = [data[i] for i in range(0, n, step)]
+        return sampled_data
+
+
 # 获取识别文字的方向，并旋转图片，只能识别90 180 270
 def rotate_image_with_white_bg(image):
     # 获取识别文字的位置信息
@@ -480,9 +545,10 @@ def rotate_image_with_white_bg(image):
     height, width = image.shape[:2]
 
     # 使用列表推导式筛选出长度大于 5 的对象
-    _data_list_word = [data for data in data_list_word if len(data.content) > 5]
+    _data_list_word = [data for data in data_list_word if len(data.content) > 3]
 
-    for data in random.sample(_data_list_word, 20):
+    _data_list_word = uniform_sampling(_data_list_word, 20)
+    for data in _data_list_word:
         rect = data.position
 
         # 裁剪图像
@@ -616,7 +682,7 @@ def output_data2text_file(passport_list, _config_options: dict):
             json.dump(passport.info, f, ensure_ascii=False)
 
 
-def is_ocr_data_in_rect(normal_rect, ocr_data_rect):
+def is_ocr_data_in_rect(normal_rect, ocr_data_rect, sample_overlap_percentage):
     """
     判断orc数据是否在标准矩形区域内
 
@@ -645,7 +711,7 @@ def is_ocr_data_in_rect(normal_rect, ocr_data_rect):
 
     overlap_percentage = (intersection_area / normal_area) * 100  # 计算重叠的百分比
 
-    return overlap_percentage >= 30
+    return overlap_percentage >= sample_overlap_percentage
 
 
 def check_len(ret):
@@ -897,7 +963,11 @@ def datalist2info(passport: Passport, data_list):
             rect = data.position
             text = data.content
 
-            if is_ocr_data_in_rect(value, rect):
+            sample_overlap_percentage = 30
+            if len(text) <= 3:
+                sample_overlap_percentage = 10
+
+            if is_ocr_data_in_rect(value, rect, sample_overlap_percentage):
                 ret[key] = text
                 break
 
@@ -907,7 +977,6 @@ def datalist2info(passport: Passport, data_list):
 
     if error_vals > 0:
         err_msg = f"一共有{error_vals}个数据没有找到对应值。"
-        print(err_msg)
         ret["err_msg"] = add_error_to_info(ret["err_msg"], err_msg)
 
     # 根据基础信息生成三个对象，对象main_info保存护照主要信息，对象mrz_info保存下方mrz分解后的信息，对象vs_info保存对比信息
@@ -915,6 +984,8 @@ def datalist2info(passport: Passport, data_list):
     set_main_info(ret)
     set_mrz_info(ret)
     set_vs_info(ret)
+
+    print(f"err_msg:{ret['err_msg']}")
 
     return ret
 
@@ -1030,6 +1101,10 @@ def main(passport: Passport, _config_options: dict):
     data_list_line = ocr_by_key(thresh, "line", "jpn")
     data_list = [data for data in data_list_line if len(data.content) > 5]
 
+    if debug_mode:
+        img_test = rect_set(cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR), data_list)
+        _imshow("test", img_test)
+
     # MZR
     mrz_datas = []
     for data in data_list:
@@ -1084,7 +1159,7 @@ def main(passport: Passport, _config_options: dict):
 
     # 获得图片
     if passport_data:
-        y1 = passport_data.position[0][1] - 5
+        y1 = passport_data.position[0][1] - 15
     else:
         y1 = mrz_2[1][1] - (mrz_2[1][1] - mrz_2[0][1]) * 25
 
