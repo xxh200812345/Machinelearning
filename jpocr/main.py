@@ -148,6 +148,7 @@ if __name__ == "__main__":
         pix = pdf2img.pdf_page_to_image(f"{file_name}")
         # 保存图像
         pdf2img.save_pix2png(pix, output_dir, passport)
+
         passport_ocr.run(passport, config_options)
 
         passport_list.append(passport)
