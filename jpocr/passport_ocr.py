@@ -1297,20 +1297,20 @@ def main(passport: Passport, _config_options: dict):
     # 初始化设置
     init(passport)
 
-    # # 使用PIL库打开图像文件
-    # pil_image = Image.open(sample_img_path)
-    # img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    # 使用PIL库打开图像文件
+    pil_image = Image.open(sample_img_path)
+    img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
 
-    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # thresh = color_scale_display(gray, 112, 217, 0.97)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    thresh = color_scale_display(gray, 112, 217, 0.97)
 
-    # # 获取识别文字的方向，并旋转图片，只能识别90 180 270
-    # thresh = rotate_image_with_white_bg(thresh)
+    # 获取识别文字的方向，并旋转图片，只能识别90 180 270
+    gray_image = rotate_image_with_white_bg(thresh)
 
     # plt.imsave("to_rotate" + "\\" + passport.file_name + "_rotate.png", cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR))
 
-    pil_image = Image.open("to_rotate" + "\\" + passport.file_name + "_rotate.png")
-    gray_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
+    # pil_image = Image.open("to_rotate" + "\\" + passport.file_name + "_rotate.png")
+    # gray_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
 
     # 截取护照
     gray_image = find_passport_area(gray_image)
@@ -1429,11 +1429,11 @@ def main(passport: Passport, _config_options: dict):
 
 
 def run(passport: Passport, _config_options: dict):
-    # try:
-    main(passport, _config_options)
-    # except Exception as e:
-    #     # 捕获异常并打印错误信息
-    #     print(f"发生错误 {passport.file_name}:", str(e))
+    try:
+        main(passport, _config_options)
+    except Exception as e:
+        # 捕获异常并打印错误信息
+        print(f"发生错误 {passport.file_name}:", str(e))
 
-    #     ret = passport.info
-    #     ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
+        ret = passport.info
+        ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
