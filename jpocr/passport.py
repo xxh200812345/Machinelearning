@@ -56,8 +56,8 @@ class Passport:
         Registered_Domicile: 0,
         Date_of_issue: 9,
         Date_of_expiry: 9,
-        foot1: 44,
-        foot2: 44,
+        foot1: 0,
+        foot2: 0,
     }
     PASSPORT_KEYS_POSITION = {
         Type: ((423, 59), (442, 86)),

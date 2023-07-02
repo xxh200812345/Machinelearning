@@ -792,10 +792,10 @@ def get_overlap_percentage(normal_rect, ocr_data_rect):
 
 def check_len(ret):
     for title, key_len in Passport.PASSPORT_KEYS_LEN.items():
-        if key_len > 0 and len(ret[title]) < key_len:
+        if key_len > 0 and len(ret[title]) != key_len:
             ret["vs_info"][
                 title
-            ] = f"{Passport.OUT_ERROR_TAG}: 实际长度{len(ret[title])}小于预测长度{key_len}"
+            ] = f"{Passport.OUT_ERROR_TAG}: 实际长度{len(ret[title])}不等于预测长度{key_len}"
         else:
             ret["vs_info"][title] = ""
 
@@ -818,6 +818,8 @@ def set_main_info(ret):
     tmp = Passport.Passport_No
     if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
         main_info[tmp] = to_O(ret[tmp][:2]) + to_0(ret[tmp][2:])
+    else:
+        main_info[tmp] = ""
 
     main_info[Passport.Surname] = to_O(ret[Passport.Surname])
     main_info[Passport.Given_name] = to_O(ret[Passport.Given_name])
@@ -826,6 +828,8 @@ def set_main_info(ret):
     tmp = Passport.Date_of_birth
     if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
         main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
+    else:
+        main_info[tmp] = ""
 
     main_info[Passport.Sex] = ret[Passport.Sex]
 
@@ -834,10 +838,14 @@ def set_main_info(ret):
     tmp = Passport.Date_of_issue
     if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
         main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
+    else:
+        main_info[tmp] = ""
 
     tmp = Passport.Date_of_expiry
     if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
         main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
+    else:
+        main_info[tmp] = ""
 
 
 def set_mrz_info(ret):
