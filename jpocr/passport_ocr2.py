@@ -209,9 +209,84 @@ def check_similarity(string, pattern, similarity_threshold=0.6):
     return similarity >= similarity_threshold
 
 
-def find_mask_key_point_by_passport(passport_rect, words, img):
+def get_mask_rect(words, lines, img):
+    """
+    获取遮罩范围
+    words是单词为的ORC识别
+    lines是句子的ORC识别
+    """
     # 获取图片的宽度和高度
     height, width = img.shape[:2]
+
+    passport_rect = None
+    type_title_rect = None
+    kata_type_title_rect = None
+    passport_title_rect = None
+    no_title_rect = None
+    for data in words:
+        rect = data.position
+        text = data.content.strip().lower()
+
+        if (
+            check_similarity(text, r"passport", 0.7)
+            and rect[0][0] < width * 0.5
+            and rect[0][0] < height * 0.5
+        ):
+            passport_rect = rect
+
+        if (
+            check_similarity(text, r"型", 0.7)
+            and len(text) <= 2
+            and rect[0][0] < width * 0.8
+            and rect[0][0] > width * 0.2
+            and rect[0][0] < height * 0.5
+        ):
+            kata_type_title_rect = rect
+
+        if (
+            check_similarity(text, r"type", 0.7)
+            and len(text) <= 5
+            and rect[0][0] < width * 0.8
+            and rect[0][0] > width * 0.2
+            and rect[0][0] < height * 0.5
+        ):
+            type_title_rect = rect
+
+        if (
+            check_similarity(text, r"passport", 0.7)
+            and rect[0][0] > width * 0.5
+            and rect[0][0] < height * 0.5
+        ):
+            passport_title_rect = rect
+
+        if (
+            check_similarity(text, r"no.", 0.7)
+            and len(text) <= 4
+            and rect[0][0] > width * 0.5
+            and rect[0][0] < height * 0.5
+        ):
+            no_title_rect = rect
+
+    if (
+        passport_rect == None
+        and kata_type_title_rect == None
+        and type_title_rect == None
+    ):
+        raise ValueError("PASSPORT关键字识别失败")
+    else:
+        if passport_rect == None and kata_type_title_rect != None:
+            ((x1, y1), (x2, y2)) = kata_type_title_rect
+            ((x1, y1), (x2, y2)) = ((x1 - 20, y2 + 10), (x1 - 5, (y2 + (y2 - y2)) * 2))
+            passport_rect = rect_vs_box(rect, width, height)
+            print("型->定位PASSPORT关键字")
+        else:
+            ((x1, y1), (x2, y2)) = type_title_rect
+            ((x1, y1), (x2, y2)) = (
+                (x1 - 20 - (x2 - x1), y2 + 10),
+                (x1 - 5 - (x2 - x1), (y2 + (y2 - y2)) * 2),
+            )
+            passport_rect = rect_vs_box(rect, width, height)
+            print("type->定位PASSPORT关键字")
 
     # 和PASSPORT最接近的字符串
     near_datas = []
@@ -234,6 +309,26 @@ def find_mask_key_point_by_passport(passport_rect, words, img):
         # 判断两个矩形是否在垂直方向上重叠，且在PASSPORT的后面
         if max_h < rect_h + passport_rect_h and passport_rect[1][0] < rect[1][0]:
             near_datas.append(data)
+
+    # mrz
+    dict_array = []
+    for data in lines:
+        rect = data.position
+        text = data.content
+
+        # 排除靠上的数据
+        if rect[0][1] < height * 0.70:
+            continue
+
+        dict_array.append({"text": text, "data": data})
+
+    sorted_array = sorted(dict_array, key=lambda x: len(x["text"]))
+    mrz2 = sorted_array[-2]["data"]
+    mrz1 = sorted_array[-1]["data"]
+
+    if debug_mode:
+        print(f"mrz1: {mrz1.content},{mrz1.position}")
+        print(f"mrz2: {mrz2.content},{mrz2.position}")
 
     p_rect = None
     jpn_rect = None
@@ -291,10 +386,32 @@ def find_mask_key_point_by_passport(passport_rect, words, img):
             match = re.match(pattern, passportno_text.strip().lower())
             if match:
                 passportno_rect = passportno_rect_temp
+            else:
+                raise ValueError("Passport No关键字识别失败")
 
     if p_rect == None:
-        print("P关键字识别失败, 用jpn继续定位")
-        if jpn_rect != None:
+        ValueError("P关键字识别失败, 用jpn继续定位")
+        if jpn_rect == None:
+            if (
+                passport_title_rect == None
+                and no_title_rect == None
+            ):
+                raise ValueError("PASSPORT关键字识别失败")
+            else:
+                if passport_rect == None and kata_type_title_rect != None:
+                    ((x1, y1), (x2, y2)) = kata_type_title_rect
+                    ((x1, y1), (x2, y2)) = ((x1 - 20, y2 + 10), (x1 - 5, (y2 + (y2 - y2)) * 2))
+                    passport_rect = rect_vs_box(rect, width, height)
+                else:
+                    ((x1, y1), (x2, y2)) = type_title_rect
+                    ((x1, y1), (x2, y2)) = (
+                        (x1 - 20 - (x2 - x1), y2 + 10),
+                        (x1 - 5 - (x2 - x1), (y2 + (y2 - y2)) * 2),
+                    )
+                    passport_rect = rect_vs_box(rect, width, height)
+
+            raise ValueError("jpn关键字识别失败")
+        else:
             # x1,y1 x2,y2
             ((x1, y1), (x2, y2)) = jpn_rect
             word_width = int((x2 - x1) / 3)
@@ -302,141 +419,6 @@ def find_mask_key_point_by_passport(passport_rect, words, img):
                 (x1 - (passportno_rect[0][0] - x2) - word_width, y1),
                 (x1 - (passportno_rect[0][0] - x2), y2),
             )
-        else:
-            print("jpn关键字识别失败")
-
-    return p_rect, passportno_rect
-
-
-def get_mask_rect(words, lines, img):
-    """
-    获取遮罩范围
-    words是单词为的ORC识别
-    lines是句子的ORC识别
-    """
-    # 获取图片的宽度和高度
-    height, width = img.shape[:2]
-
-    passport_rect = None
-    type_title_rect = None
-    kata_type_title_rect = None
-    passport_title_rect = None
-    no_title_rect = None
-    for data in words:
-        rect = data.position
-        text = data.content.strip().lower()
-
-        if (
-            check_similarity(text, r"passport", 0.7)
-            and rect[0][0] < width * 0.5
-            and rect[0][1] < height * 0.5
-        ):
-            passport_rect = rect
-
-        if (
-            check_similarity(text, r"型", 0.7)
-            and len(text) <= 2
-            and rect[0][0] < width * 0.8
-            and rect[0][0] > width * 0.2
-            and rect[0][1] < height * 0.5
-        ):
-            kata_type_title_rect = rect
-
-        if (
-            check_similarity(text, r"type", 0.7)
-            and len(text) <= 5
-            and rect[0][0] < width * 0.8
-            and rect[0][0] > width * 0.2
-            and rect[0][1] < height * 0.5
-        ):
-            type_title_rect = rect
-
-        if (
-            check_similarity(text, r"passport", 0.7)
-            and rect[0][0] > width * 0.5
-            and rect[0][1] < height * 0.5
-        ):
-            passport_title_rect = rect
-
-        if (
-            check_similarity(text, r"no.", 0.7)
-            and len(text) <= 4
-            and rect[0][0] > width * 0.5
-            and rect[0][1] < height * 0.5
-        ):
-            no_title_rect = rect
-
-    p_rect, passportno_rect = None, None
-    if passport_rect:
-        p_rect, passportno_rect = find_mask_key_point_by_passport(
-            passport_rect, words, img
-        )
-    else:
-        print("PASSPORT关键字识别失败")
-
-    top_left_x = None  # 左上 x
-    top_right_1_x = None  # 右上1 x
-    top_y = None  # 左上 右上 y
-
-    if not p_rect:
-        if kata_type_title_rect:
-            ((x1, y1), (x2, y2)) = kata_type_title_rect
-            top_left_x = x1 if x1 > 0 else 0  # 左上 x
-            print("型 title -> 定位左上 x")
-
-        elif type_title_rect:
-            ((x1, y1), (x2, y2)) = kata_type_title_rect
-            top_left_x = x1 - int((x2 - x1) * 0.5)
-            top_left_x = top_left_x if top_left_x < width else width  # 左上 x
-            print("type title -> 定位左上 x")
-
-        else:
-            raise ValueError("p关键字区域识别失败")
-    else:
-        top_left_x = p_rect[0][0]  # 左上 x
-
-    if not passportno_rect:
-        if passport_title_rect:
-            ((x1, y1), (x2, y2)) = passport_title_rect
-            ((x1, y1), (x2, y2)) = ((0, y2 + 10), (x2 + (x2 - x1), height))
-            (x1, y1, x2, y2) = rect_vs_box(((x1, y1), (x2, y2)), width, height)
-            top_right_1_x = x2  # 右上1 x
-            top_y = y1  # 左上 右上 y
-            print("passport title -> 定位 passportno 关键字")
-
-        elif no_title_rect:
-            ((x1, y1), (x2, y2)) = no_title_rect
-            ((x1, y1), (x2, y2)) = ((0, y2 + 10), (x2 + (x2 - x1) * 2, height))
-            (x1, y1, x2, y2) = rect_vs_box(((x1, y1), (x2, y2)), width, height)
-            top_right_1_x = x2  # 右上1 x
-            top_y = y1  # 左上 右上 y
-            print("No. title -> 定位 passportno 关键字")
-
-        else:
-            raise ValueError("passportno区域关键字识别失败")
-    else:
-        top_right_1_x = passportno_rect[1][0]  # 右上1 x
-        top_y = passportno_rect[0][1]  # 左上 右上 y
-
-    # mrz
-    dict_array = []
-    for data in lines:
-        rect = data.position
-        text = data.content
-
-        # 排除靠上的数据
-        if rect[0][1] < height * 0.70:
-            continue
-
-        dict_array.append({"text": text, "data": data})
-
-    sorted_array = sorted(dict_array, key=lambda x: len(x["text"]))
-    mrz2 = sorted_array[-2]["data"]
-    mrz1 = sorted_array[-1]["data"]
-
-    if debug_mode:
-        print(f"mrz1: {mrz1.content},{mrz1.position}")
-        print(f"mrz2: {mrz2.content},{mrz2.position}")
 
     # 创建一个全白色的遮罩，它的大小和原图一样
     mask = np.ones((height, width), dtype="uint8") * 255
@@ -455,18 +437,15 @@ def get_mask_rect(words, lines, img):
     mrz2_y2 = mrz2_rect[1][1] + broder if mrz2_rect[1][1] + broder < height else height
     mrz1_x1 = mrz_s_rect[0][0] - broder if mrz_s_rect[0][0] - broder > 0 else 0
 
-    top_right_2_x = mrz2_rect[1][0]  # 右下 右上2 x
-    mrz1_y = mrz1_rect[0][1]
-
     points = np.array(
         [
-            [top_left_x - broder, top_y - broder],  # 左上
-            [top_right_1_x + broder, top_y - broder],  # 右上1
-            [top_right_2_x + broder, top_y - broder],  # 右上2
-            [top_right_2_x + broder, mrz2_y2],  # 右下
+            [p_rect[0][0] - broder, passportno_rect[0][1] - broder],  # 左上
+            [passportno_rect[1][0] + broder, passportno_rect[0][1] - broder],
+            [mrz2_rect[1][0] + broder, passportno_rect[0][1] - broder],  # 右上
+            [mrz2_rect[1][0] + broder, mrz2_y2],  # 右下
             [mrz1_x1, mrz2_y2],  # 左下
-            [mrz1_x1, mrz1_y - broder],
-            [top_left_x - broder, mrz1_y - broder],
+            [mrz1_x1, mrz1_rect[0][1] - broder],
+            [p_rect[0][0] - broder, mrz1_rect[0][1] - broder],
         ],
         dtype=np.int32,
     )
@@ -481,7 +460,7 @@ def get_mask_rect(words, lines, img):
 
     border = 10
 
-    y1 = top_y - border if top_y - border > 0 else 0
+    y1 = passportno_rect[0][1] - border if passportno_rect[0][1] - border > 0 else 0
     y2 = mrz2_rect[1][1] + border if mrz2_rect[1][1] + border < height else height
     x1 = mrz2_rect[0][0] - border if mrz2_rect[0][0] - border > 0 else 0
     x2 = mrz2_rect[1][0] + border if mrz2_rect[1][0] + border < width else width

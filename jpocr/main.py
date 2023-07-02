@@ -161,8 +161,6 @@ if __name__ == "__main__":
 
         print(f"处理完成，用时{round(run_time, 2)}秒\n")
 
-    # 识别后数据输出到文本文件中
-    passport_ocr.output_data2text_file(passport_list, config_options)
     print(
         f"全部处理完成，一共{len(pdf_files)}件，总用时{round(s_time, 2)}秒，平均用时{round(s_time/len(pdf_files), 2)}秒"
     )
