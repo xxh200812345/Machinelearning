@@ -20,6 +20,7 @@ import pytesseract
 import os
 import re
 import difflib
+import json
 
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
@@ -1408,6 +1409,20 @@ def find_passport_area(img):
 
     return cut_img
 
+# 识别后数据输出到文本文件中
+def output_data2text_file(passport, _config_options: dict):
+
+    output_data_file = (
+        _config_options["OUTPUT_FOLDER_PATH"]
+        + "/"
+        + Passport.json_dir
+        + "/"
+        + passport.file_name
+        + ".json"
+    )
+    # 打开文件，将文件指针移动到文件的末尾
+    with open(output_data_file, "a", encoding="utf-8") as f:
+        json.dump(passport.info, f, ensure_ascii=False)
 
 def main(passport: Passport, _config_options: dict):
     global config_options
@@ -1550,6 +1565,9 @@ def main(passport: Passport, _config_options: dict):
 
     # img_cv = cut_img
     plt.imsave(sample_edited_img_path, img_cv)
+
+    # 识别后数据输出到文本文件中
+    output_data2text_file(passport, config_options)
 
 
 def run(passport: Passport, _config_options: dict):

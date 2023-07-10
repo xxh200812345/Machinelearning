@@ -89,8 +89,6 @@ if __name__ == "__main__":
 
         print(f"正在处理： {index+1}， 共计 {len(pdf_files)}")
         ret = ppoa.passprocess(PdfInPath)
-        # 识别后数据输出到文本文件中
-        ppoa.output_data2text_file(ret)
 
         # 记录函数结束时间
         end_time = time.time()

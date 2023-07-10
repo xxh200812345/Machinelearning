@@ -5,7 +5,6 @@ import configparser
 from passport import Passport
 import os
 import sys
-import json
 import shutil
 
 
@@ -78,18 +77,3 @@ class PassportOCRAbstraction:
 
         return config_options
 
-    # 识别后数据输出到文本文件中
-    def output_data2text_file(self, passport):
-        passport = self.passport
-
-        output_data_file = (
-            self.config_options["OUTPUT_FOLDER_PATH"]
-            + "/"
-            + Passport.json_dir
-            + "/"
-            + passport.file_name
-            + ".json"
-        )
-        # 打开文件，将文件指针移动到文件的末尾
-        with open(output_data_file, "a", encoding="utf-8") as f:
-            json.dump(passport.info, f, ensure_ascii=False)
