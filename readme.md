@@ -9,10 +9,18 @@
 ## 更新步骤
 1. 更新依赖包
 2. 更新模型
-3. 放入pdf
-4. 运行
 
-## 调用
+## 运行
+
+### 需要的文件
+
+    -a----         2023/7/10      1:10            574 ocr_configs.ini
+    -a----         2023/7/10     10:45           3085 passport.py
+    -a----         2023/7/10     10:48           3111 PassportOCRAbstraction.py
+    -a----         2023/7/10     10:31          49417 passport_ocr.py
+    -a----         2023/7/10     10:18            517 pdf2img.py
+
+### 调用
 
     # 引入护照识别类
     from PassportOCRAbstraction import PassportOCRAbstraction
@@ -155,20 +163,9 @@ ai_jpocr_venv 虚拟环境
 
 ## 运行
 
-### 输入图片标准说明
-- 文件存放位置：jpocr\passport_imgs 
-- 护照的PDF扫描文档转图像，护照必须垂直或者水平
-
-### 输入PDF标准说明
-- 文件存放位置：jpocr\passport_pdfs
+### 默认输入PDF标准说明
+- 默认文件存放位置：jpocr\passport_pdfs
 - 护照的PDF扫描文档，护照必须垂直或者水平
-
-### 运行代码
-
-参数传入为：输入PDF文件夹 输出文件夹
-
-    PS H:\vswork\Machinelearning\jpocr> ai_jpocr_venv\Scripts\activate
-    (ai_jpocr_venv) PS H:\vswork\Machinelearning\jpocr> python main.py input_path output_path
 
 ### 输出结果以及说明
 jpocr\output\
