@@ -43,6 +43,8 @@ class Passport:
 
     # 图片存放位置
     image_dir = "images"
+    # json存放位置
+    json_dir = "jsons"
 
     PASSPORT_KEYS_LEN = {
         Type: 1,

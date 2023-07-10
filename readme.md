@@ -4,12 +4,25 @@
 - 1.x 2023/4/23 实现基本功能
 - 2.x 2023/5/23 追加了PDF识别，细化输出
 - 2.2.0 2023/6/1 追加了参数传入输入输出文件夹路径，方便实际环境调用
+- 3.x 2023/7/1 接口优化，识别率提升
 
 ## 更新步骤
 1. 更新依赖包
 2. 更新模型
 3. 放入pdf
 4. 运行
+
+## 调用
+
+    # 引入护照识别类
+    from PassportOCRAbstraction import PassportOCRAbstraction
+    
+    # 初始化护照识别类
+    ppoa =  PassportOCRAbstraction()
+    ...
+    # 调用识别类 PdfInPath：护照pdf文件绝对路径，ret：识别结果的Json
+    ret = ppoa.passprocess(PdfInPath)
+
 
 ## 部署OCR程序
 从github链接clone项目到windows 
@@ -62,7 +75,34 @@ PASSPORT_PDFS_FOLDER_PATH PDF输入（可以不设置用默认）（参数传入
 OUTPUT_FOLDER_PATH 输出（可以不设置用默认）（参数传入时无视此处设置）
 
 ## Window自动化
-运行 `jpocr\setup.bat`，自动配置白名单、自定义模型、虚拟环境
+
+### 解压
+    解压 res\tessdata.rar → res\tessdata
+    确保目录结构正确，如下列表
+
+    (base) xxh@DESKTOP-FCMNQ67:/mnt/h/vswork/Machinelearning/jpocr/res/tessdata$ ll
+    total 46768
+    drwxrwxrwx 1 xxh xxh     4096 Jul 10 10:55 ./
+    drwxrwxrwx 1 xxh xxh     4096 Jul 10 10:55 ../
+    -rwxrwxrwx 1 xxh xxh    26374 Dec 23  2022 ScrollView.jar*
+    drwxrwxrwx 1 xxh xxh     4096 May  5 14:11 configs/
+    -rwxrwxrwx 1 xxh xxh  4113088 May 23 11:44 eng.traineddata*
+    -rwxrwxrwx 1 xxh xxh       33 Jan 17  2019 eng.user-patterns*
+    -rwxrwxrwx 1 xxh xxh       27 Jan 17  2019 eng.user-words*
+    -rwxrwxrwx 1 xxh xxh   128076 Dec 23  2022 jaxb-api-2.3.1.jar*
+    -rwxrwxrwx 1 xxh xxh 14330109 May 23 11:44 jpn.traineddata*
+    -rwxrwxrwx 1 xxh xxh  3037480 Apr  2 02:05 jpn_vert.traineddata*
+    -rwxrwxrwx 1 xxh xxh 15400601 May  5 13:16 num_1.traineddata*
+    -rwxrwxrwx 1 xxh xxh 10562727 Dec 23  2022 osd.traineddata*
+    -rwxrwxrwx 1 xxh xxh      572 Dec 23  2022 pdf.ttf*
+    -rwxrwxrwx 1 xxh xxh   125187 Dec 23  2022 piccolo2d-core-3.0.1.jar*
+    -rwxrwxrwx 1 xxh xxh   149558 Dec 23  2022 piccolo2d-extras-3.0.1.jar*
+    drwxrwxrwx 1 xxh xxh     4096 Apr  2 02:05 script/
+    drwxrwxrwx 1 xxh xxh     4096 Apr  2 02:03 tessconfigs/
+    
+
+### 运行Window自动化
+    运行 `jpocr\setup.bat`，自动配置白名单、自定义模型、虚拟环境
 
 ### 自动设置白名单
 
@@ -139,7 +179,7 @@ jpocr\output\
 | images/*_cut.png | 整体护照OCR识别结果 |
 | images/*_edited.png | 图像处理后的图像OCR识别结果 |
 | images/*_sign.png | 签名图像 |
-| *.json | 存放处理后的护照信息 |
+| jsons/*.json | 存放处理后的护照信息 |
 | text_imgs | 存放切割后的文字块的文件夹（目前没开放） |
 
 #### *.json 存放处理后的护照信息

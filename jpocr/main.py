@@ -1,14 +1,11 @@
 #!/bin/bash
 # -*- coding: utf-8 -*-
 
-import passport_ocr
+from PassportOCRAbstraction import PassportOCRAbstraction
 
-import pdf2img
-import configparser
 from passport import Passport
 import os
 import sys
-import shutil
 import time
 
 import glob
@@ -23,63 +20,15 @@ config_options = {}
 # 护照数组
 passport_list = []
 
-
-# 读取配置文件
-def config_readin():
-    global config_options
-
-    config = configparser.ConfigParser()
-    config.read("ocr_configs.ini", encoding="utf-8")
-
-    # 获取整个配置文件的所有 section
-    sections = config.sections()
-    print(f"Sections: {sections}")
-
-    # 获取某个 section 的所有键值对
-    options = config.options("section")
-    for option in options:
-        value = config.get("section", option)
-
-        config_options[option.upper()] = value
-
-    print(f"len(sys.argv): {sys.argv}")
-
-    if len(sys.argv) == 3:
-        config_options["PASSPORT_PDFS_FOLDER_PATH"] = sys.argv[1]
-        config_options["OUTPUT_FOLDER_PATH"] = sys.argv[2]
-
-    if len(sys.argv) != 1 and len(sys.argv) != 3:
-        error_exit("请输入命令：main.py input_path output_path")
-
-    # 传入文件夹地址时去除末尾的反斜杠符号（\）
-    config_options["PASSPORT_PDFS_FOLDER_PATH"] = config_options[
-        "PASSPORT_PDFS_FOLDER_PATH"
-    ].rstrip(os.sep)
-    config_options["OUTPUT_FOLDER_PATH"] = config_options["OUTPUT_FOLDER_PATH"].rstrip(
-        os.sep
-    )
-
+# 护照识别对象
+ppoa = None
 
 # 初始化设置
 def init():
     # 读取配置文件
-    config_readin()
-
-    if not os.path.exists(config_options["OUTPUT_FOLDER_PATH"]):
-        os.makedirs(config_options["OUTPUT_FOLDER_PATH"])  # 如果文件夹不存在，则创建它
-        os.makedirs(
-            config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.image_dir
-        )  # 如果文件夹不存在，则创建它
-    else:
-        shutil.rmtree(config_options["OUTPUT_FOLDER_PATH"])  # 如果文件夹已经存在，则清空它
-        os.makedirs(config_options["OUTPUT_FOLDER_PATH"])  # 然后再创建它
-        os.makedirs(
-            config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.image_dir
-        )  # 然后再创建它
-
-    # 新建文字信息拆分后数据文件夹
-    os.makedirs(config_options["OUTPUT_FOLDER_PATH"] + "/text_imgs")
-
+    global config_options, ppoa
+    ppoa =  PassportOCRAbstraction()
+    config_options = ppoa.config_options
 
 def error_exit(info_msg):
     # 创建Tkinter根窗口
@@ -101,9 +50,6 @@ if __name__ == "__main__":
 
     # 被识别PDF所在文件夹
     passport_pdfs_dir = config_options["PASSPORT_PDFS_FOLDER_PATH"]
-
-    # 识别后输出图片文件夹
-    output_dir = config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.image_dir
 
     # 查询文件夹中是否存在pdf文件
     pdf_files = glob.glob(os.path.join(passport_pdfs_dir, "*.pdf"))
@@ -137,21 +83,14 @@ if __name__ == "__main__":
     # 处理时间
     s_time = 0
 
-    for index, file_name in enumerate(pdf_files):
+    for index, PdfInPath in enumerate(pdf_files):
         # 记录开始时间
         start_time = time.time()
 
-        passport = Passport(file_name)
-        print(f"开始处理PDF ({index+1}/{len(pdf_files)}):{file_name}")
-
-        # 使用PyMuPDF库将页面转换为图像
-        pix = pdf2img.pdf_page_to_image(f"{file_name}")
-        # 保存图像
-        pdf2img.save_pix2png(pix, output_dir, passport)
-
-        passport_ocr.run(passport, config_options)
-
-        passport_list.append(passport)
+        print(f"正在处理： {index+1}， 共计 {len(pdf_files)}")
+        ret = ppoa.passprocess(PdfInPath)
+        # 识别后数据输出到文本文件中
+        ppoa.output_data2text_file(ret)
 
         # 记录函数结束时间
         end_time = time.time()

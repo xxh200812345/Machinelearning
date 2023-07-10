@@ -12,7 +12,6 @@ from collections import Counter
 from PIL import Image
 import matplotlib.pyplot as plt
 
-import json
 from passport import Passport
 from datetime import datetime
 from collections import Counter
@@ -20,7 +19,6 @@ from collections import Counter
 import pytesseract
 import os
 import re
-import random
 import difflib
 
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
@@ -743,16 +741,6 @@ def binary_img_with_transparency(img, threshold=180):
     # 将白色部分设置为透明
     rgba[:, :, 3] = np.where(img == 255, 0, 255)
     return rgba
-
-
-# 识别后数据输出到文本文件中
-def output_data2text_file(passport, _config_options: dict):
-    output_data_file = (
-        _config_options["OUTPUT_FOLDER_PATH"] + "/" + passport.file_name + ".json"
-    )
-    # 打开文件，将文件指针移动到文件的末尾
-    with open(output_data_file, "a", encoding="utf-8") as f:
-        json.dump(passport.info, f, ensure_ascii=False)
 
 
 def get_overlap_percentage(normal_rect, ocr_data_rect):
@@ -1562,9 +1550,6 @@ def main(passport: Passport, _config_options: dict):
 
     # img_cv = cut_img
     plt.imsave(sample_edited_img_path, img_cv)
-
-    # 识别后数据输出到文本文件中
-    output_data2text_file(passport, config_options)
 
 
 def run(passport: Passport, _config_options: dict):
