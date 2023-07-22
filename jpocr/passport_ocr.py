@@ -90,7 +90,7 @@ def init(passport: Passport):
     input_dir = config_options["PASSPORT_IMAGES_FOLDER_PATH"]
     output_dir = config_options["OUTPUT_FOLDER_PATH"]
 
-    if passport.ext == ".pdf":
+    if passport.ext.lower() == ".pdf":
         sample_img_path = (
             f"{output_dir}/{passport.image_dir}/{passport.pdf2png_file_name}"
         )
@@ -291,7 +291,7 @@ def find_mask_key_point_by_passport(passport_rect, words, img):
             if match:
                 passportno_rect = passportno_rect_temp
 
-    if p_rect == None:
+    if p_rect == None and passportno_rect != None:
         print("P关键字识别失败, 用jpn继续定位")
         if jpn_rect != None:
             # x1,y1 x2,y2
@@ -1088,7 +1088,7 @@ def datalist2info(passport: Passport, data_list, img):
             y2 = y2 - y_offset
 
         if len(text) <= 3:
-            x1 -= 20
+            x1 -= 30
             x2 += 20
 
         y1 -= 10
@@ -1192,14 +1192,16 @@ def fill_middle_with_white(image, style):
     # 获取图像的尺寸
     height, width = image.shape[:2]
 
+    white_height = 0.6
+
     if style == "下边涂白":
         # 计算矩形区域的左上角和右下角坐标
-        top_left = (0, int(height * 0.6))
+        top_left = (0, int(height * white_height))
         bottom_right = (width, height)
     else:
         # 计算矩形区域的左上角和右下角坐标
         top_left = (0, 0)
-        bottom_right = (width, int(height * 0.4))
+        bottom_right = (width, int(height * (1 - white_height)))
 
     # 创建与原始图像大小相同的空白图像
     mask = np.zeros_like(image)
@@ -1256,7 +1258,7 @@ def find_passport_line(data_list):
     """
     从OCR结果获取passport所在行
     """
-    passport_data = None
+    befind_data = None
     passport_cnt = 0
     patterns = [
         r".*旅券 .*",
@@ -1275,17 +1277,72 @@ def find_passport_line(data_list):
                 passport_cnt += 1
 
         if passport_cnt >= 2:
-            passport_data = data
+            befind_data = data
             break
 
-    if passport_data:
+    if befind_data:
         print(
-            f"passport行命中率：{round(passport_cnt/len(patterns),2)},{passport_data.content}"
+            f"passport行命中率：{round(passport_cnt/len(patterns),2)},{befind_data.content}"
         )
     else:
         print(f"passport行未命中率：{round(passport_cnt/len(patterns),2)}")
 
-    return passport_data
+    return befind_data
+
+def find_passportno_title_line(data_list):
+    """
+    从OCR结果获取passportno_title所在行
+    """
+    befind_data = None
+    passport_cnt = 0
+    patterns = [
+        r".*旅券 .*",
+        r".*Passp[oO0]rt.*",
+        r".*No.*",
+        r".*番号.*",
+        r".*ssuing.*",
+        r".*country.*",
+        r".*Type.*",
+        r".*発行.*",
+        r".*型.*",
+        r".*国.*",
+    ]
+    for data in data_list:
+        text = data.content
+        passport_cnt = 0
+
+        for pattern in patterns:
+            match = re.match(pattern, text.strip().upper())
+            if match:
+                passport_cnt += 1
+
+        if passport_cnt >= len(patterns) // 2:
+            befind_data = data
+
+    if befind_data:
+        print(
+            f"passportno title行命中率：{round(passport_cnt/len(patterns),2)},{befind_data.content}"
+        )
+    else:
+        print(f"passportno title行未命中率：{round(passport_cnt/len(patterns),2)}")
+        return None
+
+    # 找到passportno title的下一个矩形，就是passport关键字的矩形
+    min_h = 0
+    befind_data_y1 = befind_data.position[0][1]
+    for data in data_list:
+        rect = data.position
+
+        rect_y1 = rect[0][1] 
+
+        if  rect_y1 <= befind_data_y1:
+            continue
+
+        if min_h == 0 or rect_y1 - befind_data_y1 < min_h:
+            min_h = rect_y1 - befind_data_y1
+            befind_data = data
+
+    return befind_data
 
 
 def rotate_rectangle(x1, y1, x2, y2, angle):
@@ -1337,6 +1394,9 @@ def find_passport_area(img):
 
     # passport
     passport_data = find_passport_line(data_list)
+
+    if passport_data == None:
+        passport_data = find_passportno_title_line(data_list)
 
     # data_list_line = ocr_by_key(img, "line", "jpn")
 
@@ -1569,8 +1629,8 @@ def main(passport: Passport, _config_options: dict):
     # 识别后数据输出到文本文件中
     output_data2text_file(passport, config_options)
 
-
 def run(passport: Passport, _config_options: dict):
+    # main(passport, _config_options)
     try:
         main(passport, _config_options)
     except Exception as e:

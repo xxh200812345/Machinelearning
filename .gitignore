@@ -1,4 +1,3 @@
-
 jpocr/ai_jpocr_venv/
 jpocr/res/cut_imgs/
 jpocr/res/out_*
@@ -8,7 +7,6 @@ jpocr/res/un_upload/
 jpocr/passport_imgs/
 jpocr/passport_pdfs/
 jpocr/build/
-chatglm-6b/
 to_init/
 to_pdf/
 to_rotate/
