@@ -430,42 +430,56 @@ def get_mask_rect(words, lines, img):
         dict_array.append({"text": text, "data": data})
 
     sorted_array = sorted(dict_array, key=lambda x: len(x["text"]))
-    mrz2 = sorted_array[-2]["data"]
-    mrz1 = sorted_array[-1]["data"]
+    mrz_top = sorted_array[-2]["data"]
+    mrz_bottom = sorted_array[-1]["data"]
+
+    if mrz_bottom.position[0][1] < mrz_top.position[0][1]:
+        temp = mrz_bottom
+        mrz_bottom = mrz_top
+        mrz_top = temp
 
     if debug_mode:
-        print(f"mrz1: {mrz1.content},{mrz1.position}")
-        print(f"mrz2: {mrz2.content},{mrz2.position}")
+        print(f"mrz_bottom: {mrz_bottom.content},{mrz_bottom.position}")
+        print(f"mrz_top: {mrz_top.content},{mrz_top.position}")
 
     # 创建一个全白色的遮罩，它的大小和原图一样
     mask = np.ones((height, width), dtype="uint8") * 255
 
     # 定义多边形顶点坐标
-    mrz2_rect = mrz2.position
-    mrz1_rect = mrz1.position
+    mrz_top_rect = mrz_top.position
+    mrz_bottom_rect = mrz_bottom.position
 
     # 最短 mrz
-    mrz_s_rect = mrz1_rect
-    if mrz1_rect[0][0] < mrz2_rect[0][0]:
-        mrz_s_rect = mrz2_rect
+    mrz_s_rect = mrz_bottom_rect
+    if mrz_bottom_rect[0][0] < mrz_top_rect[0][0]:
+        mrz_s_rect = mrz_top_rect
 
     broder = 10
 
-    mrz2_y2 = mrz2_rect[1][1] + broder if mrz2_rect[1][1] + broder < height else height
-    mrz1_x1 = mrz_s_rect[0][0] - broder if mrz_s_rect[0][0] - broder > 0 else 0
+    mrz_bottom_y2 = mrz_bottom_rect[1][1]
+    mrz_bottom_y2 = (
+        mrz_bottom_y2 + broder if mrz_bottom_y2 + broder < height else height
+    )
+    mrz_bottom_x1 = mrz_s_rect[0][0] - broder if mrz_s_rect[0][0] - broder > 0 else 0
 
-    top_right_2_x = mrz2_rect[1][0]  # 右下 右上2 x
-    mrz1_y = mrz1_rect[0][1]
+    top_right_2_x = mrz_bottom_rect[1][0]  # 右下 右上2 x
+    top_right_2_x = top_right_2_x + broder if top_right_2_x + broder < width else width
+
+    mrz_top_y1 = mrz_top_rect[0][1] - broder  # mrz top y1
+
+    top_left_x = top_left_x - broder if top_left_x - broder > 0 else 0
+    top_y = top_y - broder if top_y - broder > 0 else 0
+    top_right_1_x = top_right_1_x + broder if top_right_1_x + broder < width else width
 
     points = np.array(
         [
-            [top_left_x - broder, top_y - broder],  # 左上
-            [top_right_1_x + broder, top_y - broder],  # 右上1
-            [top_right_2_x + broder, top_y - broder],  # 右上2
-            [top_right_2_x + broder, mrz2_y2],  # 右下
-            [mrz1_x1, mrz2_y2],  # 左下
-            [mrz1_x1, mrz1_y - broder],
-            [top_left_x - broder, mrz1_y - broder],
+            [top_left_x, top_y],  # 左上
+            [top_right_1_x, top_y],  # 右上1
+            [top_right_2_x, top_y],  # 右上2
+            [top_right_2_x, mrz_bottom_y2],  # 右下
+            [mrz_bottom_x1, mrz_bottom_y2],  # 左下
+            [mrz_bottom_x1, mrz_top_y1],
+            [top_left_x, mrz_top_y1],
         ],
         dtype=np.int32,
     )
@@ -480,14 +494,9 @@ def get_mask_rect(words, lines, img):
 
     border = 10
 
-    y1 = top_y - border if top_y - border > 0 else 0
-    y2 = mrz2_rect[1][1] + border if mrz2_rect[1][1] + border < height else height
-    x1 = mrz2_rect[0][0] - border if mrz2_rect[0][0] - border > 0 else 0
-    x2 = mrz2_rect[1][0] + border if mrz2_rect[1][0] + border < width else width
-
     res = res[
-        y1:y2,
-        x1:x2,
+        top_y:mrz_bottom_y2,
+        mrz_bottom_x1:top_right_2_x,
     ]
 
     if debug_mode:
@@ -1289,6 +1298,7 @@ def find_passport_line(data_list):
 
     return befind_data
 
+
 def find_passportno_title_line(data_list):
     """
     从OCR结果获取passportno_title所在行
@@ -1333,9 +1343,9 @@ def find_passportno_title_line(data_list):
     for data in data_list:
         rect = data.position
 
-        rect_y1 = rect[0][1] 
+        rect_y1 = rect[0][1]
 
-        if  rect_y1 <= befind_data_y1:
+        if rect_y1 <= befind_data_y1:
             continue
 
         if min_h == 0 or rect_y1 - befind_data_y1 < min_h:
@@ -1469,9 +1479,9 @@ def find_passport_area(img):
 
     return cut_img
 
+
 # 识别后数据输出到文本文件中
 def output_data2text_file(passport, _config_options: dict):
-
     output_data_file = (
         _config_options["OUTPUT_FOLDER_PATH"]
         + "/"
@@ -1483,6 +1493,7 @@ def output_data2text_file(passport, _config_options: dict):
     # 打开文件，将文件指针移动到文件的末尾
     with open(output_data_file, "a", encoding="utf-8") as f:
         json.dump(passport.info, f, ensure_ascii=False)
+
 
 def main(passport: Passport, _config_options: dict):
     global config_options
@@ -1586,12 +1597,10 @@ def main(passport: Passport, _config_options: dict):
 
         dict_array.append({"text": text, "data": data})
 
-    sorted_array = sorted(dict_array, key=lambda x: len(x["text"]))
-    mrz2 = sorted_array[-2]["data"]
-    mrz1 = sorted_array[-1]["data"]
+    sorted_array = sorted(dict_array, key=lambda x: x["data"].position[0][0])
 
     y1 = top_data.position[0][1] - 52
-    x1 = max(mrz1.position[0][0], mrz2.position[0][0]) - 44
+    x1 = sorted_array[0]['data'].position[0][0] - 44
 
     class Ocr_ret:
         def __init__(self, position, content):
@@ -1628,6 +1637,7 @@ def main(passport: Passport, _config_options: dict):
 
     # 识别后数据输出到文本文件中
     output_data2text_file(passport, config_options)
+
 
 def run(passport: Passport, _config_options: dict):
     # main(passport, _config_options)
