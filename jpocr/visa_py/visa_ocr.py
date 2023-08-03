@@ -12,7 +12,7 @@ from collections import Counter
 from PIL import Image
 import matplotlib.pyplot as plt
 
-from passport import Passport
+from mvisa import Visa
 from datetime import datetime
 from collections import Counter
 
@@ -83,29 +83,29 @@ def convert_mac_path_to_windows(mac_path):
 
 
 # 初始化设置
-def init(passport: Passport):
+def init(visa: Visa):
     global sample_img_path, sample_cut_img_path, sample_edited_img_path, sample_sign_img_path
     global debug_mode, debug_font
 
-    input_dir = config_options["PASSPORT_IMAGES_FOLDER_PATH"]
+    input_dir = config_options["PDFS_FOLDER_PATH"]
     output_dir = config_options["OUTPUT_FOLDER_PATH"]
 
-    if passport.ext.lower() == ".pdf":
+    if visa.ext.lower() == ".pdf":
         sample_img_path = (
-            f"{output_dir}/{passport.image_dir}/{passport.pdf2png_file_name}"
+            f"{output_dir}/{visa.image_dir}/{visa.pdf2png_file_name}"
         )
     else:
-        sample_img_path = f"{input_dir}/{passport.image_dir}/{passport.file_name}"
+        sample_img_path = f"{input_dir}/{visa.image_dir}/{visa.file_name}"
 
-    sample_cut_img_path = f"{output_dir}/{passport.image_dir}/{passport.cut_file_name}"
+    sample_cut_img_path = f"{output_dir}/{visa.image_dir}/{visa.cut_file_name}"
     sample_edited_img_path = (
-        f"{output_dir}/{passport.image_dir}/{passport.edited_file_name}"
+        f"{output_dir}/{visa.image_dir}/{visa.edited_file_name}"
     )
     sample_sign_img_path = (
-        f"{output_dir}/{passport.image_dir}/{passport.sign_file_name}"
+        f"{output_dir}/{visa.image_dir}/{visa.sign_file_name}"
     )
 
-    debug_font = config_options["DEBUG_FONT"]
+    debug_font = os.path.dirname(os.getcwd()) + "/" + config_options["DEBUG_FONT"]
 
     # 设置tessract入口程序安装位置
     set_tessract_app()
@@ -122,7 +122,7 @@ def init(passport: Passport):
 def ocr_by_key(img, key, lang="num_1"):
     """
     key : line word
-    lang : jpn eng num_1
+    lang : chi_sim jpn eng num_1
     """
     # ツール取得
     tool = pyocr.get_available_tools()[0]
@@ -145,7 +145,7 @@ def ocr_by_key(img, key, lang="num_1"):
 
 
 # 标记识别结果，并显示图片
-def rect_set(img, data_list, color=(0, 0, 255)):
+def rect_set(img, data_list, font_size = 16, color=(0, 0, 255)):
     i = 0
     for data in data_list:
         rect = data.position
@@ -173,7 +173,6 @@ def rect_set(img, data_list, color=(0, 0, 255)):
         text = data.content
         # 定义文本样式
         font_path = debug_font
-        font_size = 16
         font_color = color
 
         # 加载日语字体
@@ -208,7 +207,7 @@ def check_similarity(string, pattern, similarity_threshold=0.6):
     return similarity >= similarity_threshold
 
 
-def find_mask_key_point_by_passport(passport_rect, words, img):
+def find_mask_key_point_by_visa(visa_rect, words, img):
     # 获取图片的宽度和高度
     height, width = img.shape[:2]
 
@@ -221,22 +220,22 @@ def find_mask_key_point_by_passport(passport_rect, words, img):
         # 提取矩形的上边界和下边界位置
         rect_top = rect[0][1]
         rect_bottom = rect[1][1]  # 下边界位置
-        passport_rect_top = passport_rect[0][1] - 10  # 存在passportno在非常上面的情况 10px
-        passport_rect_bottom = passport_rect[1][1]  # 上边界 + 高度
+        visa_rect_top = visa_rect[0][1] - 10  # 存在visano在非常上面的情况 10px
+        visa_rect_bottom = visa_rect[1][1]  # 上边界 + 高度
 
         rect_h = rect_bottom - rect_top
-        passport_rect_h = passport_rect_bottom - passport_rect_top
+        visa_rect_h = visa_rect_bottom - visa_rect_top
         max_h = max(
-            abs(rect_top - passport_rect_bottom), abs(rect_bottom - passport_rect_top)
+            abs(rect_top - visa_rect_bottom), abs(rect_bottom - visa_rect_top)
         )
 
         # 判断两个矩形是否在垂直方向上重叠，且在PASSPORT的后面
-        if max_h < rect_h + passport_rect_h and passport_rect[1][0] < rect[1][0]:
+        if max_h < rect_h + visa_rect_h and visa_rect[1][0] < rect[1][0]:
             near_datas.append(data)
 
     p_rect = None
     jpn_rect = None
-    passportno_rect = None
+    visano_rect = None
     for data in near_datas:
         rect = data.position
         text = data.content
@@ -259,52 +258,52 @@ def find_mask_key_point_by_passport(passport_rect, words, img):
         pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
         match = re.match(pattern, text.strip().lower())
         if match:
-            passportno_rect = data.position
+            visano_rect = data.position
 
-    if passportno_rect == None:
+    if visano_rect == None:
         # 如果检测结果过于分离，尝试合并一下看
         if jpn_rect:
-            passportno_data_temps = []
+            visano_data_temps = []
             for data in near_datas:
                 rect = data.position
                 text = data.content
 
                 if rect[0][0] > jpn_rect[1][0]:
-                    passportno_data_temps.append(data)
+                    visano_data_temps.append(data)
 
             sorted_array = sorted(
-                passportno_data_temps, key=lambda x: data.position[0][0]
+                visano_data_temps, key=lambda x: data.position[0][0]
             )
-            passportno_text = ""
-            passportno_rect_temp = None
+            visano_text = ""
+            visano_rect_temp = None
             for data in sorted_array:
                 rect = data.position
                 text = data.content
-                passportno_text += text
-                if passportno_rect_temp:
-                    passportno_rect_temp = merge_rectangles(passportno_rect_temp, rect)
+                visano_text += text
+                if visano_rect_temp:
+                    visano_rect_temp = merge_rectangles(visano_rect_temp, rect)
                 else:
-                    passportno_rect_temp = rect
+                    visano_rect_temp = rect
 
             pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
-            match = re.match(pattern, passportno_text.strip().lower())
+            match = re.match(pattern, visano_text.strip().lower())
             if match:
-                passportno_rect = passportno_rect_temp
+                visano_rect = visano_rect_temp
 
-    if p_rect == None and passportno_rect != None:
+    if p_rect == None and visano_rect != None:
         print("P关键字识别失败, 用jpn继续定位")
         if jpn_rect != None:
             # x1,y1 x2,y2
             ((x1, y1), (x2, y2)) = jpn_rect
             word_width = int((x2 - x1) / 3)
             p_rect = (
-                (x1 - (passportno_rect[0][0] - x2) - word_width, y1),
-                (x1 - (passportno_rect[0][0] - x2), y2),
+                (x1 - (visano_rect[0][0] - x2) - word_width, y1),
+                (x1 - (visano_rect[0][0] - x2), y2),
             )
         else:
             print("jpn关键字识别失败")
 
-    return p_rect, passportno_rect
+    return p_rect, visano_rect
 
 
 def get_mask_rect(words, lines, img):
@@ -316,21 +315,21 @@ def get_mask_rect(words, lines, img):
     # 获取图片的宽度和高度
     height, width = img.shape[:2]
 
-    passport_rect = None
+    visa_rect = None
     type_title_rect = None
     kata_type_title_rect = None
-    passport_title_rect = None
+    visa_title_rect = None
     no_title_rect = None
     for data in words:
         rect = data.position
         text = data.content.strip().lower()
 
         if (
-            check_similarity(text, r"passport", 0.7)
+            check_similarity(text, r"visa", 0.7)
             and rect[0][0] < width * 0.5
             and rect[0][1] < height * 0.5
         ):
-            passport_rect = rect
+            visa_rect = rect
 
         if (
             check_similarity(text, r"型", 0.7)
@@ -351,11 +350,11 @@ def get_mask_rect(words, lines, img):
             type_title_rect = rect
 
         if (
-            check_similarity(text, r"passport", 0.7)
+            check_similarity(text, r"visa", 0.7)
             and rect[0][0] > width * 0.5
             and rect[0][1] < height * 0.5
         ):
-            passport_title_rect = rect
+            visa_title_rect = rect
 
         if (
             check_similarity(text, r"no.", 0.7)
@@ -365,10 +364,10 @@ def get_mask_rect(words, lines, img):
         ):
             no_title_rect = rect
 
-    p_rect, passportno_rect = None, None
-    if passport_rect:
-        p_rect, passportno_rect = find_mask_key_point_by_passport(
-            passport_rect, words, img
+    p_rect, visano_rect = None, None
+    if visa_rect:
+        p_rect, visano_rect = find_mask_key_point_by_visa(
+            visa_rect, words, img
         )
     else:
         print("PASSPORT关键字识别失败")
@@ -394,14 +393,14 @@ def get_mask_rect(words, lines, img):
     else:
         top_left_x = p_rect[0][0]  # 左上 x
 
-    if not passportno_rect:
-        if passport_title_rect:
-            ((x1, y1), (x2, y2)) = passport_title_rect
+    if not visano_rect:
+        if visa_title_rect:
+            ((x1, y1), (x2, y2)) = visa_title_rect
             ((x1, y1), (x2, y2)) = ((0, y2 + 10), (x2 + (x2 - x1), height))
             (x1, y1, x2, y2) = rect_vs_box(((x1, y1), (x2, y2)), width, height)
             top_right_1_x = x2  # 右上1 x
             top_y = y1  # 左上 右上 y
-            print("passport title -> 定位 passportno 关键字")
+            print("visa title -> 定位 visano 关键字")
 
         elif no_title_rect:
             ((x1, y1), (x2, y2)) = no_title_rect
@@ -409,13 +408,13 @@ def get_mask_rect(words, lines, img):
             (x1, y1, x2, y2) = rect_vs_box(((x1, y1), (x2, y2)), width, height)
             top_right_1_x = x2  # 右上1 x
             top_y = y1  # 左上 右上 y
-            print("No. title -> 定位 passportno 关键字")
+            print("No. title -> 定位 visano 关键字")
 
         else:
-            raise ValueError("passportno区域关键字识别失败")
+            raise ValueError("visano区域关键字识别失败")
     else:
-        top_right_1_x = passportno_rect[1][0]  # 右上1 x
-        top_y = passportno_rect[0][1]  # 左上 右上 y
+        top_right_1_x = visano_rect[1][0]  # 右上1 x
+        top_y = visano_rect[0][1]  # 左上 右上 y
 
     # mrz
     dict_array = []
@@ -605,7 +604,7 @@ def uniform_sampling(data, sample_size):
 def rotate_key_word_check(data_list):
     keys_count = 0
 
-    keys = ["passport", "date", "country", "p ", "jpn ", "japan"]
+    keys = ["visa", "date", "country", "p ", "jpn ", "japan"]
 
     for data in data_list:
         text = data.content
@@ -649,29 +648,6 @@ def rotated_image_by_angle(image, angle):
 
     return rotated_image
 
-
-# 获取识别文字的方向，并旋转图片，只能识别90 180 270
-def rotate_image_with_white_bg(image):
-    # 获取识别文字的位置信息
-    angle = []
-    data_list = ocr_by_key(image, "line", "jpn")
-
-    if rotate_key_word_check(data_list):
-        return image
-
-    for i in range(3):
-        angle = 90 * (i + 1)
-
-        rotated_image = rotated_image_by_angle(image, angle)
-
-        data_list = ocr_by_key(rotated_image, "line", "jpn")
-
-        if rotate_key_word_check(data_list):
-            return rotated_image
-
-    raise ValueError("没有正确识别护照方向")
-
-
 def _imshow(title, img, scale_percent=50):
     # 缩小比例
     width = int(img.shape[1] * scale_percent / 100)
@@ -691,7 +667,7 @@ def remove_small_height_regions(mask, img, max_height, min_height):
     # 膨胀操作
     kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 1))
     bin_clo = cv2.dilate(inverted_img, kernel2, iterations=2)
-    # _imshow("Gaussian Thresholding", bin_clo)
+    _imshow("Gaussian Thresholding", bin_clo)
 
     # 获取所有连通区域的标签
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
@@ -789,11 +765,11 @@ def get_overlap_percentage(normal_rect, ocr_data_rect):
 
 
 def check_len(ret):
-    for title, key_len in Passport.PASSPORT_KEYS_LEN.items():
+    for title, key_len in Visa.PASSPORT_KEYS_LEN.items():
         if key_len > 0 and len(ret[title]) != key_len:
             ret["vs_info"][
                 title
-            ] = f"{Passport.OUT_ERROR_TAG}: 实际长度{len(ret[title])}不等于预测长度{key_len}"
+            ] = f"{Visa.OUT_ERROR_TAG}: 实际长度{len(ret[title])}不等于预测长度{key_len}"
         else:
             ret["vs_info"][title] = ""
 
@@ -810,37 +786,37 @@ def set_main_info(ret):
     main_info = ret["main_info"]
     vs_info = ret["vs_info"]
 
-    main_info[Passport.Type] = ret[Passport.Type]
-    main_info[Passport.Issuing_country] = to_O(ret[Passport.Issuing_country])
+    main_info[Visa.Type] = ret[Visa.Type]
+    main_info[Visa.Issuing_country] = to_O(ret[Visa.Issuing_country])
 
-    tmp = Passport.Passport_No
-    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+    tmp = Visa.Visa_No
+    if vs_info[tmp][:5] != Visa.OUT_ERROR_TAG:
         main_info[tmp] = to_O(ret[tmp][:2]) + to_0(ret[tmp][2:])
     else:
         main_info[tmp] = ""
 
-    main_info[Passport.Surname] = to_O(ret[Passport.Surname])
-    main_info[Passport.Given_name] = to_O(ret[Passport.Given_name])
-    main_info[Passport.Nationality] = to_O(ret[Passport.Nationality])
+    main_info[Visa.Surname] = to_O(ret[Visa.Surname])
+    main_info[Visa.Given_name] = to_O(ret[Visa.Given_name])
+    main_info[Visa.Nationality] = to_O(ret[Visa.Nationality])
 
-    tmp = Passport.Date_of_birth
-    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+    tmp = Visa.Date_of_birth
+    if vs_info[tmp][:5] != Visa.OUT_ERROR_TAG:
         main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
     else:
         main_info[tmp] = ""
 
-    main_info[Passport.Sex] = ret[Passport.Sex]
+    main_info[Visa.Sex] = ret[Visa.Sex]
 
-    main_info[Passport.Registered_Domicile] = to_O(ret[Passport.Registered_Domicile])
+    main_info[Visa.Registered_Domicile] = to_O(ret[Visa.Registered_Domicile])
 
-    tmp = Passport.Date_of_issue
-    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+    tmp = Visa.Date_of_issue
+    if vs_info[tmp][:5] != Visa.OUT_ERROR_TAG:
         main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
     else:
         main_info[tmp] = ""
 
-    tmp = Passport.Date_of_expiry
-    if vs_info[tmp][:5] != Passport.OUT_ERROR_TAG:
+    tmp = Visa.Date_of_expiry
+    if vs_info[tmp][:5] != Visa.OUT_ERROR_TAG:
         main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
     else:
         main_info[tmp] = ""
@@ -849,60 +825,60 @@ def set_main_info(ret):
 def set_mrz_info(ret):
     mrz_info = ret["mrz_info"]
     vs_info = ret["vs_info"]
-    foot1 = to_O(ret[Passport.foot1])
-    foot2 = ret[Passport.foot2]
+    foot1 = to_O(ret[Visa.foot1])
+    foot2 = ret[Visa.foot2]
 
-    if vs_info[Passport.foot1][:5] != Passport.OUT_ERROR_TAG:
+    if vs_info[Visa.foot1][:5] != Visa.OUT_ERROR_TAG:
         Surname_p2 = 0
         Given_name_p2 = 0
-        for title, position in Passport.PASSPORT_MRZ1_POSITION.items():
-            if title == Passport.Surname:
+        for title, position in Visa.PASSPORT_MRZ1_POSITION.items():
+            if title == Visa.Surname:
                 find_surname = foot1[position[0] :]
                 Surname_p2 = find_surname.find("<")
                 if Surname_p2 != -1:
                     mrz_info[title] = find_surname[:Surname_p2]
                     Surname_p2 = position[0] + len(mrz_info[title])
                 else:
-                    mrz_info[title] = Passport.OUT_ERROR_TAG + ": 找不到结尾<"
+                    mrz_info[title] = Visa.OUT_ERROR_TAG + ": 找不到结尾<"
 
-            elif title == Passport.Given_name:
+            elif title == Visa.Given_name:
                 if Surname_p2 + 2 > len(foot1):
-                    mrz_info[title] = Passport.OUT_ERROR_TAG + ": 超过了MRZ的长度"
-                elif mrz_info[Passport.Surname][:5] == Passport.OUT_ERROR_TAG:
-                    mrz_info[title] = Passport.OUT_ERROR_TAG + ": 姓没找到，所以放弃找名"
+                    mrz_info[title] = Visa.OUT_ERROR_TAG + ": 超过了MRZ的长度"
+                elif mrz_info[Visa.Surname][:5] == Visa.OUT_ERROR_TAG:
+                    mrz_info[title] = Visa.OUT_ERROR_TAG + ": 姓没找到，所以放弃找名"
                 else:
                     find_given_name = foot1[Surname_p2 + 2 :]
                     Given_name_p2 = find_given_name.find("<")
                     if Given_name_p2 != -1:
                         mrz_info[title] = find_given_name[:Given_name_p2]
                     else:
-                        mrz_info[title] = Passport.OUT_ERROR_TAG + ": 找不到结尾<"
+                        mrz_info[title] = Visa.OUT_ERROR_TAG + ": 找不到结尾<"
 
             else:
                 mrz_info[title] = foot1[position[0] : position[1]]
     else:
-        for title, position in Passport.PASSPORT_MRZ1_POSITION.items():
+        for title, position in Visa.PASSPORT_MRZ1_POSITION.items():
             mrz_info[title] = ""
 
-    if vs_info[Passport.foot2][:5] != Passport.OUT_ERROR_TAG:
-        for title, position in Passport.PASSPORT_MRZ2_POSITION.items():
+    if vs_info[Visa.foot2][:5] != Visa.OUT_ERROR_TAG:
+        for title, position in Visa.PASSPORT_MRZ2_POSITION.items():
             tmp = foot2[position[0] : position[1]]
 
-            if title == Passport.Passport_No:
+            if title == Visa.Visa_No:
                 mrz_info[title] = to_O(tmp[:2]) + to_0(tmp[2:])
 
-            if title == Passport.Nationality:
+            if title == Visa.Nationality:
                 mrz_info[title] = to_O(tmp)
 
-            if title == Passport.Date_of_birth:
+            if title == Visa.Date_of_birth:
                 mrz_info[title] = to_0(tmp)
 
-            if title == Passport.Date_of_expiry:
+            if title == Visa.Date_of_expiry:
                 mrz_info[title] = to_0(tmp)
 
             mrz_info[title] = tmp
     else:
-        for title, position in Passport.PASSPORT_MRZ1_POSITION.items():
+        for title, position in Visa.PASSPORT_MRZ1_POSITION.items():
             mrz_info[title] = ""
 
 
@@ -922,8 +898,8 @@ def add_error_to_info(info, error_msg):
     """
     追加对应的比较错误 info：vs_info[title]
     """
-    if info[:5] != Passport.OUT_ERROR_TAG:
-        info = Passport.OUT_ERROR_TAG + ": " + error_msg
+    if info[:5] != Visa.OUT_ERROR_TAG:
+        info = Visa.OUT_ERROR_TAG + ": " + error_msg
     else:
         info += ";" + error_msg
 
@@ -968,11 +944,11 @@ def set_vs_info(ret):
             main_info[title] = f"main_info中不存在这个属性"
             continue
 
-        if main_info[title][:5] == Passport.OUT_ERROR_TAG:
+        if main_info[title][:5] == Visa.OUT_ERROR_TAG:
             error_msg = f"中间的信息项目存在错误"
             vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
-        elif mrz_info[title][:5] == Passport.OUT_ERROR_TAG:
+        elif mrz_info[title][:5] == Visa.OUT_ERROR_TAG:
             error_msg = f"MRZ的信息项目存在错误"
             vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
@@ -984,7 +960,7 @@ def set_vs_info(ret):
             error_msg = f"MRZ的信息项目没有值"
             vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
-        elif title == Passport.Date_of_birth or title == Passport.Date_of_expiry:
+        elif title == Visa.Date_of_birth or title == Visa.Date_of_expiry:
             month_num = get_month_number(main_info[title][2:5])
             if isinstance(month_num, str):
                 error_msg = month_num
@@ -999,8 +975,8 @@ def set_vs_info(ret):
                     error_msg = f"数据不一致"
                     vs_info[title] = add_error_to_info(vs_info[title], error_msg)
 
-        elif title == Passport.Nationality:
-            nationality_code = Passport.get_nationality_code(main_info[title])
+        elif title == Visa.Nationality:
+            nationality_code = Visa.get_nationality_code(main_info[title])
             if nationality_code == "UNK":
                 error_msg = f"没找到对应的国家（{main_info[title]}）code"
                 vs_info[title] = add_error_to_info(vs_info[title], error_msg)
@@ -1032,8 +1008,8 @@ def rect_vs_box(rect, width, height):
 
 
 # 获取护照信息
-def datalist2info(passport: Passport, data_list, img):
-    ret = passport.info
+def datalist2info(visa: Visa, data_list, img):
+    ret = visa.info
     ret["main_info"] = {}
     ret["mrz_info"] = {}
     ret["vs_info"] = {}
@@ -1045,7 +1021,7 @@ def datalist2info(passport: Passport, data_list, img):
         # 文本
         ocr_texts += f"{data.content} {data.position}\n"
 
-    ret["file_name"] = passport.file_name
+    ret["file_name"] = visa.file_name
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     ret["time"] = now_str
@@ -1058,8 +1034,8 @@ def datalist2info(passport: Passport, data_list, img):
 
     error_vals = 0
 
-    # 通过PassportNo确认位移
-    passportNo_data = None
+    # 通过VisaNo确认位移
+    visaNo_data = None
     for data in data_list:
         rect = data.position
         text = data.content
@@ -1067,17 +1043,17 @@ def datalist2info(passport: Passport, data_list, img):
         pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
         match = re.match(pattern, text.strip().lower())
         if match:
-            passportNo_data = data
+            visaNo_data = data
             break
 
     x_offset = 0
     y_offset = 0
-    if passportNo_data:
-        ((x1, y1), (x2, y2)) = passportNo_data.position
+    if visaNo_data:
+        ((x1, y1), (x2, y2)) = visaNo_data.position
         center_x = (x1 + x2) / 2
         center_y = (y1 + y2) / 2
 
-        ((px1, py1), (px2, py2)) = Passport.PASSPORT_KEYS_POSITION[Passport.Passport_No]
+        ((px1, py1), (px2, py2)) = Visa.PASSPORT_KEYS_POSITION[Visa.Visa_No]
         p_center_x = (px1 + px2) / 2
         p_center_y = (py1 + py2) / 2
 
@@ -1089,7 +1065,7 @@ def datalist2info(passport: Passport, data_list, img):
         text = data.content
         ((x1, y1), (x2, y2)) = data.position
 
-        if passportNo_data:
+        if visaNo_data:
             # 移动矩形的坐标
             x1 = x1 - x_offset
             y1 = y1 - y_offset
@@ -1111,11 +1087,11 @@ def datalist2info(passport: Passport, data_list, img):
     data_list_foots = [data for data in data_list if len(data.content) > 30]
     if len(data_list_foots) == 2:
         if data_list_foots[0].position[0][1] < data_list_foots[1].position[0][1]:
-            ret[Passport.foot1] = data_list_foots[0].content
-            ret[Passport.foot2] = data_list_foots[1].content
+            ret[Visa.foot1] = data_list_foots[0].content
+            ret[Visa.foot2] = data_list_foots[1].content
         else:
-            ret[Passport.foot1] = data_list_foots[1].content
-            ret[Passport.foot2] = data_list_foots[0].content
+            ret[Visa.foot1] = data_list_foots[1].content
+            ret[Visa.foot2] = data_list_foots[0].content
 
     else:
         for data in data_list_foots:
@@ -1124,22 +1100,22 @@ def datalist2info(passport: Passport, data_list, img):
             pattern = r"^P.JPN.*"
             match = re.match(pattern, text.strip().lower())
             if match:
-                ret[Passport.foot1] = data.content
+                ret[Visa.foot1] = data.content
 
             pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
             match = re.match(pattern, text.strip().lower())
             if match:
-                ret[Passport.foot2] = data.content
+                ret[Visa.foot2] = data.content
 
-        if Passport.foot1 not in ret or not ret[Passport.foot1]:
-            ret[Passport.foot1] = Passport.OUT_ERROR_TAG + ": 没有找到数据."
+        if Visa.foot1 not in ret or not ret[Visa.foot1]:
+            ret[Visa.foot1] = Visa.OUT_ERROR_TAG + ": 没有找到数据."
             error_vals += 1
 
-        if Passport.foot2 not in ret or not ret[Passport.foot2]:
-            ret[Passport.foot2] = Passport.OUT_ERROR_TAG + ": 没有找到数据."
+        if Visa.foot2 not in ret or not ret[Visa.foot2]:
+            ret[Visa.foot2] = Visa.OUT_ERROR_TAG + ": 没有找到数据."
             error_vals += 1
 
-    for key, value in Passport.PASSPORT_KEYS_POSITION.items():
+    for key, value in Visa.PASSPORT_KEYS_POSITION.items():
         if "foot" in key:
             continue
 
@@ -1164,7 +1140,7 @@ def datalist2info(passport: Passport, data_list, img):
             ret[key] = max_overlap_text
 
         if key not in ret:
-            ret[key] = Passport.OUT_ERROR_TAG + ": 没有找到数据."
+            ret[key] = Visa.OUT_ERROR_TAG + ": 没有找到数据."
             error_vals += 1
 
     if error_vals > 0:
@@ -1172,15 +1148,15 @@ def datalist2info(passport: Passport, data_list, img):
         ret["err_msg"] = add_error_to_info(ret["err_msg"], err_msg)
 
     # 如果国籍和年月日黏在一起
-    if ret[Passport.Nationality] == ret[Passport.Date_of_birth]:
-        if len(ret[Passport.Nationality]) > 8:
-            ret[Passport.Date_of_birth] = ret[Passport.Date_of_birth][-9:]
-            ret[Passport.Nationality] = ret[Passport.Nationality][:-9]
+    if ret[Visa.Nationality] == ret[Visa.Date_of_birth]:
+        if len(ret[Visa.Nationality]) > 8:
+            ret[Visa.Date_of_birth] = ret[Visa.Date_of_birth][-9:]
+            ret[Visa.Nationality] = ret[Visa.Nationality][:-9]
         else:
             ret[
-                Passport.Nationality
-            ] = f"{Passport.OUT_ERROR_TAG} : 数据错误. {ret[Passport.Nationality]}"
-            ret[Passport.Date_of_birth] = ret[Passport.Nationality]
+                Visa.Nationality
+            ] = f"{Visa.OUT_ERROR_TAG} : 数据错误. {ret[Visa.Nationality]}"
+            ret[Visa.Date_of_birth] = ret[Visa.Nationality]
 
     # 根据基础信息生成三个对象，对象main_info保存护照主要信息，对象mrz_info保存下方mrz分解后的信息，对象vs_info保存对比信息
     check_len(ret)
@@ -1263,48 +1239,48 @@ def get_rotate(image):
     return temp_lines, binary
 
 
-def find_passport_line(data_list):
+def find_visa_line(data_list):
     """
-    从OCR结果获取passport所在行
+    从OCR结果获取visa所在行
     """
     befind_data = None
-    passport_cnt = 0
+    visa_cnt = 0
     patterns = [
-        r".*旅券 .*",
-        r".* PASSP[O0]RT .*",
-        r".* .?P .*",
-        r".* JPN .*",
-        r".* [a-zA-Z]{1,3}\d{6,8}$ .*",
+        r".*CHI.*",
+        r".*INE.*",
+        r".*ESE.*",
+        r".*VIS.*",
+        r".*SA.*",
     ]
     for data in data_list:
         text = data.content
-        passport_cnt = 0
+        visa_cnt = 0
 
         for pattern in patterns:
             match = re.match(pattern, text.strip().upper())
             if match:
-                passport_cnt += 1
+                visa_cnt += 1
 
-        if passport_cnt >= 2:
+        if visa_cnt >= 2:
             befind_data = data
             break
 
     if befind_data:
         print(
-            f"passport行命中率：{round(passport_cnt/len(patterns),2)},{befind_data.content}"
+            f"visa行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}"
         )
     else:
-        print(f"passport行未命中率：{round(passport_cnt/len(patterns),2)}")
+        print(f"visa行未命中率：{round(visa_cnt/len(patterns),2)}")
 
     return befind_data
 
 
-def find_passportno_title_line(data_list):
+def find_visano_title_line(data_list):
     """
-    从OCR结果获取passportno_title所在行
+    从OCR结果获取visano_title所在行
     """
     befind_data = None
-    passport_cnt = 0
+    visa_cnt = 0
     patterns = [
         r".*旅券 .*",
         r".*Passp[oO0]rt.*",
@@ -1319,25 +1295,25 @@ def find_passportno_title_line(data_list):
     ]
     for data in data_list:
         text = data.content
-        passport_cnt = 0
+        visa_cnt = 0
 
         for pattern in patterns:
             match = re.match(pattern, text.strip().upper())
             if match:
-                passport_cnt += 1
+                visa_cnt += 1
 
-        if passport_cnt >= len(patterns) // 2:
+        if visa_cnt >= len(patterns) // 2:
             befind_data = data
 
     if befind_data:
         print(
-            f"passportno title行命中率：{round(passport_cnt/len(patterns),2)},{befind_data.content}"
+            f"visano title行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}"
         )
     else:
-        print(f"passportno title行未命中率：{round(passport_cnt/len(patterns),2)}")
+        print(f"visano title行未命中率：{round(visa_cnt/len(patterns),2)}")
         return None
 
-    # 找到passportno title的下一个矩形，就是passport关键字的矩形
+    # 找到visano title的下一个矩形，就是visa关键字的矩形
     min_h = 0
     befind_data_y1 = befind_data.position[0][1]
     for data in data_list:
@@ -1381,32 +1357,41 @@ def rotate_rectangle(x1, y1, x2, y2, angle):
     return int(x1_rot), int(y1_rot), int(x2_rot), int(y2_rot)
 
 
-def find_passport_area(img):
-    data_list_line = ocr_by_key(img, "line", "jpn")
+def find_visa_area(img):
+    data_list_line = ocr_by_key(img, "line", "eng")
     data_list = [data for data in data_list_line if len(data.content) > 5]
 
     if debug_mode:
-        img_test = rect_set(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR), data_list)
+        img_test = rect_set(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR), data_list_line, 30, (0,0,255))
         _imshow("test", img_test)
+
+    height, width = img.shape[:2]
 
     # MZR
     mrz_datas = []
     for data in data_list:
+        rect = data.position
         text = data.content
 
-        pattern = r".*[<くぐ]{2}.*[<くぐ]{2}.*"
+        pattern = r"V.*[<くぐ]{1}.*[<くぐ]{1}.*"
         match = re.match(pattern, text.strip().upper())
-        if match:
+        if match and len(text) > 40:
+            mrz_datas.append(data)
+            continue
+
+        pattern = r"TR.*"
+        match = re.match(pattern, text.strip().upper())
+        if match and len(text) > 40:
             mrz_datas.append(data)
 
     for data in mrz_datas:
         print(f"{data.content},{data.position}")
 
-    # passport
-    passport_data = find_passport_line(data_list)
+    # visa
+    visa_data = find_visa_line(data_list)
 
-    if passport_data == None:
-        passport_data = find_passportno_title_line(data_list)
+    if visa_data == None:
+        visa_data = find_visano_title_line(data_list)
 
     # data_list_line = ocr_by_key(img, "line", "jpn")
 
@@ -1418,8 +1403,8 @@ def find_passport_area(img):
         mrz_t = mrz_2
 
     # 旋转图片，还原倾斜度 y1:y2 x1:x2
-    if passport_data:
-        y1 = passport_data.position[0][1] - 15 - 1200
+    if visa_data:
+        y1 = visa_data.position[0][1] - 15 - 1200
     else:
         y1 = mrz_2[1][1] - (mrz_2[1][1] - mrz_2[0][1]) * 25 - 200
 
@@ -1446,8 +1431,8 @@ def find_passport_area(img):
             rotate_img = rotated_image_by_angle(rotate_img, angle)
 
     # 获得图片
-    if passport_data:
-        y1 = passport_data.position[0][1] - 115
+    if visa_data:
+        y1 = visa_data.position[1][1]
     else:
         y1 = mrz_2[1][1] - (mrz_2[1][1] - mrz_2[0][1]) * 25
 
@@ -1455,7 +1440,7 @@ def find_passport_area(img):
     x2 = mrz_t[1][0] + 5
     y1 = y1
     y2 = mrz_2[1][1]
-    height, width = img.shape[:2]
+
     if abs(angle) > 0.5:
         # print(x1, y1, x2, y2,height, width)
         x1, y1, x2, y2 = rotate_rectangle(x1, y1, x2, y2, angle)
@@ -1479,105 +1464,105 @@ def find_passport_area(img):
 
     return cut_img
 
+def set_to_dict(data):
+    if isinstance(data, set):
+        # 如果是set对象，递归处理每个元素并转换为字典对象
+        return {set_to_dict(item): None for item in data}
+    elif isinstance(data, dict):
+        # 如果是字典，递归处理键和值
+        return {set_to_dict(key): set_to_dict(value) for key, value in data.items()}
+    elif isinstance(data, (list, tuple)):
+        # 如果是列表或元组，递归处理每个元素
+        return [set_to_dict(item) for item in data]
+    else:
+        # 其他类型的数据保持不变
+        return data
 
 # 识别后数据输出到文本文件中
-def output_data2text_file(passport, _config_options: dict):
+def output_data2text_file(visa, _config_options: dict):
     output_data_file = (
         _config_options["OUTPUT_FOLDER_PATH"]
         + "/"
-        + Passport.json_dir
+        + Visa.json_dir
         + "/"
-        + passport.file_name
+        + visa.file_name
         + ".json"
     )
+
     # 打开文件，将文件指针移动到文件的末尾
     with open(output_data_file, "a", encoding="utf-8") as f:
-        json.dump(passport.info, f, ensure_ascii=False)
+        json.dump(set_to_dict(visa.info), f, ensure_ascii=False)
 
 
-def main(passport: Passport, _config_options: dict):
+def main(visa: Visa, _config_options: dict):
     global config_options
 
     config_options = _config_options
 
     # 初始化设置
-    init(passport)
+    init(visa)
 
     # 使用PIL库打开图像文件
     pil_image = Image.open(sample_img_path)
     img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    thresh = color_scale_display(gray, 112, 217, 0.97)
+    thresh = color_scale_display(gray, 99, 224, 3.36)
 
-    # 获取识别文字的方向，并旋转图片，只能识别90 180 270
-    gray_image = rotate_image_with_white_bg(thresh)
+    # plt.imsave("to_rotate" + "\\" + visa.file_name + "_rotate.png", cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR))
 
-    # plt.imsave("to_rotate" + "\\" + passport.file_name + "_rotate.png", cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR))
-
-    # pil_image = Image.open("to_rotate" + "\\" + passport.file_name + "_rotate.png")
-    # gray_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
+    # pil_image = Image.open("to_rotate" + "\\" + visa.file_name + "_rotate.png")
+    # thresh = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
 
     # 截取护照
-    gray_image = find_passport_area(gray_image)
+    gray_image = find_visa_area(thresh)
 
     # 二值化图像
-    _, binary = cv2.threshold(gray_image, 150, 255, cv2.THRESH_BINARY)
+    _, binary = cv2.threshold(gray_image, 170, 255, cv2.THRESH_BINARY)
 
-    gray_image_OCR = fill_middle_with_white(binary.copy(), "下边涂白")
+    # binary = add_border_to_grayscale_image(binary, 100)
 
-    data_list_word = ocr_by_key(gray_image_OCR, "word", "jpn")
+    # gray_image_OCR = fill_middle_with_white(binary.copy(), "下边涂白")
 
-    data_list_line = ocr_by_key(binary, "line", "jpn")
+    # data_list_word = ocr_by_key(gray_image_OCR, "word", "eng")
 
-    cut_img = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2BGR)
-    img_cv = rect_set(cut_img, data_list_word)
+    # img_cv = rect_set(gray_image_OCR, data_list_word)
+    # _imshow("", img_cv)
 
-    plt.imsave(sample_cut_img_path, img_cv)
+    # data_list_line = ocr_by_key(binary, "line", "eng")
+
+    # img_cv = rect_set(binary, data_list_line)
+    # _imshow("", img_cv)
+
+    # cut_img = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2BGR)
+    # img_cv = rect_set(cut_img, data_list_word)
+
+    plt.imsave(sample_cut_img_path, binary)
 
     # 获取数据范围
-    thresh = get_mask_rect(data_list_word, data_list_line, gray_image)
+    # thresh = get_mask_rect(data_list_word, data_list_line, gray_image)
     # 缩放到固定高度800
-    thresh = resize_image_by_height(thresh, 800)
-
+    thresh = resize_image_by_height(binary, 800)
+    img_mask = thresh
     # 二值化图像
-    _, img_mask = cv2.threshold(thresh, 150, 255, cv2.THRESH_BINARY)
+    # _, img_mask = cv2.threshold(thresh, 150, 255, cv2.THRESH_BINARY)
     height, width = img_mask.shape[:2]
     # 读取原始图像和矩形遮罩
     mask = np.zeros(img_mask.shape[:2], dtype=np.uint8)
 
-    # 去除签名 top:bottom, left:right
-    x1, y1, x2, y2 = (
-        int(width * 0.585),
-        int(height * 0.52),
-        width - 1,
-        int(height * 0.75),
-    )
-    sign_rect = ((x1, y1), (x2, y2))
-    cv2.rectangle(mask, sign_rect[0], sign_rect[1], 255, -1)
-    plt.imsave(
-        sample_sign_img_path, binary_img_with_transparency(img_mask[y1:y2, x1:x2])
-    )
-
-    # 去除水印
-    x1, y1, x2, y2 = (
-        int(width * 0.75),
-        int(height * 0.25),
-        width - 1,
-        int(height * 0.52),
-    )
-    cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
-
     # 去除title top:bottom, left:right
-    mask = remove_small_height_regions(mask, img_mask, 20, 3)
+    mask = remove_small_height_regions(mask, img_mask, 30, 0)
 
     # 遮罩外涂白
     img = mask_fill_white(thresh, mask)
     img = clear_little_px(img)
     img = add_border_to_grayscale_image(img, 100)
-
     # OCR
     data_list = ocr_by_key(img, "word", "num_1")
+
+    cut_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    img_cv = rect_set(cut_img, data_list)
+    _imshow("", img_cv)
 
     dict_array = []
     top_data = None
@@ -1600,7 +1585,7 @@ def main(passport: Passport, _config_options: dict):
     sorted_array = sorted(dict_array, key=lambda x: x["data"].position[0][0])
 
     y1 = top_data.position[0][1] - 52
-    x1 = sorted_array[0]['data'].position[0][0] - 44
+    x1 = sorted_array[0]["data"].position[0][0] - 44
 
     class Ocr_ret:
         def __init__(self, position, content):
@@ -1623,12 +1608,12 @@ def main(passport: Passport, _config_options: dict):
     cut_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     # 获取护照信息
-    passport.info, data_list = datalist2info(passport, _data_list, cut_img)
+    visa.info, data_list = datalist2info(visa, _data_list, cut_img)
 
     # 存储OCR结果图片
     img_cv = rect_set(cut_img, _data_list)
 
-    for key, i_rect in Passport.PASSPORT_KEYS_POSITION.items():
+    for key, i_rect in Visa.PASSPORT_KEYS_POSITION.items():
         x1, y1, x2, y2 = i_rect[0][0], i_rect[0][1], i_rect[1][0], i_rect[1][1]
         cv2.rectangle(img_cv, i_rect[0], i_rect[1], (255, 0, 0), 2)
 
@@ -1636,16 +1621,16 @@ def main(passport: Passport, _config_options: dict):
     plt.imsave(sample_edited_img_path, img_cv)
 
     # 识别后数据输出到文本文件中
-    output_data2text_file(passport, config_options)
+    output_data2text_file(visa, config_options)
 
 
-def run(passport: Passport, _config_options: dict):
-    # main(passport, _config_options)
-    try:
-        main(passport, _config_options)
-    except Exception as e:
-        # 捕获异常并打印错误信息
-        print(f"发生错误 {passport.file_name}:", str(e))
+def run(visa: Visa, _config_options: dict):
+    main(visa, _config_options)
+    # try:
+    #     main(visa, _config_options)
+    # except Exception as e:
+    #     # 捕获异常并打印错误信息
+    #     print(f"发生错误 {visa.file_name}:", str(e))
 
-        ret = passport.info
-        ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
+    #     ret = visa.info
+    #     ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))

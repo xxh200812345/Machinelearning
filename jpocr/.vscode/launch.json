@@ -9,7 +9,7 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "H:\\vswork\\Machinelearning\\jpocr\\main.py",
+            "program": "H:\\vswork\\Machinelearning\\jpocr\\visa_py\\main.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }
