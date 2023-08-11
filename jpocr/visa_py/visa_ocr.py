@@ -897,7 +897,7 @@ def clear_little_px(image):
     new_contours = []
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if w * h < 400 and h < 20:
+        if w * h < 10 and h < 5:
             new_contours.append(contour)
 
     # 创建与原始图像相同大小的空白掩码
