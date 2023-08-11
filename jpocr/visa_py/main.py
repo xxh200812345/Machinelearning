@@ -1,7 +1,7 @@
 #!/bin/bash_
 # -*- coding: utf-8 -*-
 
-from OCRAbstraction import OCRAbstraction
+from VisaOCRAbstraction import VisaOCRAbstraction
 
 import os
 import sys
@@ -27,7 +27,7 @@ oa = None
 def init():
     # 读取配置文件
     global config_options, oa
-    oa = OCRAbstraction()
+    oa = VisaOCRAbstraction()
     config_options = oa.config_options
 
 

@@ -1,23 +1,20 @@
-import passport_ocr
 import visa_ocr
 
 import pdf2img
 import configparser
-from passport import Passport
 from mvisa import Visa
 import os
 import sys
 import shutil
+from mdocument import Document
 
 
-class OCRAbstraction:
+class VisaOCRAbstraction:
     def __init__(self):
         self.config_options = self.config_readin()
-        self.pages = []
 
     # 其他方法和属性
     def passprocess(self, PdfInPath):
-        pages = self.pages
 
         print(f"开始处理PDF :{PdfInPath}")
 
@@ -25,31 +22,17 @@ class OCRAbstraction:
         pixs = pdf2img.pdf_page_to_image(f"{PdfInPath}")
 
         # 第二页是签证，其他的是护照
-        for i, pix in enumerate(pixs):
-            if i != 1 :
-                pages.append(Passport(PdfInPath , i))
-            else :
-                pages.append(Visa(PdfInPath , i))
+        _visa = Visa(PdfInPath , 1)
 
-        for i, page in enumerate(pages):
+        output_dir = (
+            self.config_options["OUTPUT_FOLDER_PATH"] + "/" + _visa.image_dir
+        )
 
-            output_dir = (
-                self.config_options["OUTPUT_FOLDER_PATH"] + "/" + page.image_dir
-            )
+        # 保存图像
+        pdf2img.save_pix2png(pixs[1], output_dir, _visa)
+        visa_ocr.run(_visa, self.config_options)
 
-            if i != 1 :
-                # 保存图像
-                continue
-                pdf2img.save_pix2png(pixs[i], output_dir, page)
-                passport_ocr.run(page, self.config_options)
-
-            else :
-                # 保存图像
-                pdf2img.save_pix2png(pixs[i], output_dir, page)
-                visa_ocr.run(page, self.config_options)
-
-        info_array = [pages.info for page in pages]
-        return info_array
+        return _visa.info
 
     # 读取配置文件
     def config_readin(self):
@@ -86,10 +69,10 @@ class OCRAbstraction:
             os.makedirs(config_options["OUTPUT_FOLDER_PATH"])  # 然后再创建它
 
         os.makedirs(
-            config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.image_dir
+            config_options["OUTPUT_FOLDER_PATH"] + "/" + Visa.image_dir
         )  # 如果文件夹不存在，则创建它
         os.makedirs(
-            config_options["OUTPUT_FOLDER_PATH"] + "/" + Passport.json_dir
+            config_options["OUTPUT_FOLDER_PATH"] + "/" + Visa.json_dir
         )  # 如果文件夹不存在，则创建它
 
         return config_options

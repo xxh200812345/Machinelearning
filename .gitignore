@@ -12,4 +12,4 @@ jpocr/passport_py/to_pdf/
 jpocr/passport_py/to_rotate/
 jpocr/visa_py/output/
 jpocr/visa_py/pdfs/
-jpocr/visa_py/to_rotate
+jpocr/visa_py/to_*
