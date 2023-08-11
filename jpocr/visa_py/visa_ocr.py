@@ -1509,12 +1509,12 @@ def main(visa: Visa, _config_options: dict):
 
 
 def run(visa: Visa, _config_options: dict):
-    main(visa, _config_options)
-    # try:
-    #     main(visa, _config_options)
-    # except Exception as e:
-    #     # 捕获异常并打印错误信息
-    #     print(f"发生错误 {visa.file_name}:", str(e))
+    # main(visa, _config_options)
+    try:
+        main(visa, _config_options)
+    except Exception as e:
+        # 捕获异常并打印错误信息
+        print(f"发生错误 {visa.file_name}:", str(e))
 
-    #     ret = visa.info
-    #     ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
+        ret = visa.info
+        ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
