@@ -99,7 +99,7 @@ def init(visa: Visa):
     sample_edited_img_path = f"{output_dir}/{visa.image_dir}/{visa.edited_file_name}"
     sample_sign_img_path = f"{output_dir}/{visa.image_dir}/{visa.sign_file_name}"
 
-    debug_font = os.path.dirname(os.getcwd()) + "/" + config_options["DEBUG_FONT"]
+    debug_font = f"{os.path.dirname(os.getcwd())}/{config_options['DEBUG_FONT']}"
 
     # 设置tessract入口程序安装位置
     set_tessract_app()
@@ -1509,12 +1509,12 @@ def main(visa: Visa, _config_options: dict):
 
 
 def run(visa: Visa, _config_options: dict):
-    # main(visa, _config_options)
-    try:
-        main(visa, _config_options)
-    except Exception as e:
-        # 捕获异常并打印错误信息
-        print(f"发生错误 {visa.file_name}:", str(e))
+    main(visa, _config_options)
+    # try:
+    #     main(visa, _config_options)
+    # except Exception as e:
+    #     # 捕获异常并打印错误信息
+    #     print(f"发生错误 {visa.file_name}:", str(e))
 
-        ret = visa.info
-        ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
+    #     ret = visa.info
+    #     ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
