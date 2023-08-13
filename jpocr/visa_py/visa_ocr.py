@@ -1491,8 +1491,8 @@ def main(visa: Visa, _config_options: dict):
     # 存储OCR结果图片
     img_cv = rect_set(cut_img, data_list)
 
-    plt.imsave("to_cv" + "\\" + visa.file_name + "_cv.png", img_cv)
-    plt.imsave("to_cut" + "\\" + visa.file_name + "_cut.png", cut_img)
+    # plt.imsave("to_cv" + "\\" + visa.file_name + "_cv.png", img_cv)
+    # plt.imsave("to_cut" + "\\" + visa.file_name + "_cut.png", cut_img)
 
     # 获取护照信息
     visa.info, data_list = datalist2info(visa, data_list, cut_img)
