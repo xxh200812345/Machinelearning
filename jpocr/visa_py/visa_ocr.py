@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 
 from mvisa import Visa
 from datetime import datetime
-from collections import Counter
 
 import pytesseract
 import os
@@ -68,18 +67,6 @@ def set_tessract_app():
     # 判断当前操作系统
     if os == "Darwin":
         pyocr.tesseract.TESSERACT_CMD = config_options["MAC_TESSRACT_LOCATION"]
-
-
-def convert_mac_path_to_windows(mac_path):
-    """
-    将Mac上的相对路径转换为Windows上的相对路径
-    """
-    windows_path = mac_path.replace("/", "\\")  # 将正斜杠替换为反斜杠
-    if windows_path.startswith("\\"):  # 如果路径以根目录开始
-        windows_path = windows_path[1:]  # 移除开头的反斜杠
-        drive = os.path.splitdrive(os.getcwd())[0]  # 获取当前工作目录的盘符
-        windows_path = drive + windows_path  # 添加盘符
-    return windows_path
 
 
 # 初始化设置
@@ -296,115 +283,10 @@ def find_mask_key_point_by_visa(visa_rect, words, img):
     return p_rect, visano_rect
 
 
-def get_mask_rect(words, lines, img):
+def find_mrz(height, lines):
     """
-    获取遮罩范围
-    words是单词为的ORC识别
-    lines是句子的ORC识别
+    找到MRZ码
     """
-    # 获取图片的宽度和高度
-    height, width = img.shape[:2]
-
-    visa_rect = None
-    type_title_rect = None
-    kata_type_title_rect = None
-    visa_title_rect = None
-    no_title_rect = None
-    for data in words:
-        rect = data.position
-        text = data.content.strip().lower()
-
-        if (
-            check_similarity(text, r"visa", 0.7)
-            and rect[0][0] < width * 0.5
-            and rect[0][1] < height * 0.5
-        ):
-            visa_rect = rect
-
-        if (
-            check_similarity(text, r"型", 0.7)
-            and len(text) <= 2
-            and rect[0][0] < width * 0.8
-            and rect[0][0] > width * 0.2
-            and rect[0][1] < height * 0.5
-        ):
-            kata_type_title_rect = rect
-
-        if (
-            check_similarity(text, r"type", 0.7)
-            and len(text) <= 5
-            and rect[0][0] < width * 0.8
-            and rect[0][0] > width * 0.2
-            and rect[0][1] < height * 0.5
-        ):
-            type_title_rect = rect
-
-        if (
-            check_similarity(text, r"visa", 0.7)
-            and rect[0][0] > width * 0.5
-            and rect[0][1] < height * 0.5
-        ):
-            visa_title_rect = rect
-
-        if (
-            check_similarity(text, r"no.", 0.7)
-            and len(text) <= 4
-            and rect[0][0] > width * 0.5
-            and rect[0][1] < height * 0.5
-        ):
-            no_title_rect = rect
-
-    p_rect, visano_rect = None, None
-    if visa_rect:
-        p_rect, visano_rect = find_mask_key_point_by_visa(visa_rect, words, img)
-    else:
-        print("PASSPORT关键字识别失败")
-
-    top_left_x = None  # 左上 x
-    top_right_1_x = None  # 右上1 x
-    top_y = None  # 左上 右上 y
-
-    if not p_rect:
-        if kata_type_title_rect:
-            ((x1, y1), (x2, y2)) = kata_type_title_rect
-            top_left_x = x1 if x1 > 0 else 0  # 左上 x
-            print("型 title -> 定位左上 x")
-
-        elif type_title_rect:
-            ((x1, y1), (x2, y2)) = kata_type_title_rect
-            top_left_x = x1 - int((x2 - x1) * 0.5)
-            top_left_x = top_left_x if top_left_x < width else width  # 左上 x
-            print("type title -> 定位左上 x")
-
-        else:
-            raise ValueError("p关键字区域识别失败")
-    else:
-        top_left_x = p_rect[0][0]  # 左上 x
-
-    if not visano_rect:
-        if visa_title_rect:
-            ((x1, y1), (x2, y2)) = visa_title_rect
-            ((x1, y1), (x2, y2)) = ((0, y2 + 10), (x2 + (x2 - x1), height))
-            (x1, y1, x2, y2) = rect_vs_box(((x1, y1), (x2, y2)), width, height)
-            top_right_1_x = x2  # 右上1 x
-            top_y = y1  # 左上 右上 y
-            print("visa title -> 定位 visano 关键字")
-
-        elif no_title_rect:
-            ((x1, y1), (x2, y2)) = no_title_rect
-            ((x1, y1), (x2, y2)) = ((0, y2 + 10), (x2 + (x2 - x1) * 2, height))
-            (x1, y1, x2, y2) = rect_vs_box(((x1, y1), (x2, y2)), width, height)
-            top_right_1_x = x2  # 右上1 x
-            top_y = y1  # 左上 右上 y
-            print("No. title -> 定位 visano 关键字")
-
-        else:
-            raise ValueError("visano区域关键字识别失败")
-    else:
-        top_right_1_x = visano_rect[1][0]  # 右上1 x
-        top_y = visano_rect[0][1]  # 左上 右上 y
-
-    # mrz
     dict_array = []
     for data in lines:
         rect = data.position
@@ -420,79 +302,12 @@ def get_mask_rect(words, lines, img):
     mrz_top = sorted_array[-2]["data"]
     mrz_bottom = sorted_array[-1]["data"]
 
-    if mrz_bottom.position[0][1] < mrz_top.position[0][1]:
-        temp = mrz_bottom
-        mrz_bottom = mrz_top
-        mrz_top = temp
-
-    if debug_mode:
-        print(f"mrz_bottom: {mrz_bottom.content},{mrz_bottom.position}")
-        print(f"mrz_top: {mrz_top.content},{mrz_top.position}")
-
-    # 创建一个全白色的遮罩，它的大小和原图一样
-    mask = np.ones((height, width), dtype="uint8") * 255
-
-    # 定义多边形顶点坐标
-    mrz_top_rect = mrz_top.position
-    mrz_bottom_rect = mrz_bottom.position
-
-    # 最短 mrz
-    mrz_s_rect = mrz_bottom_rect
-    if mrz_bottom_rect[0][0] < mrz_top_rect[0][0]:
-        mrz_s_rect = mrz_top_rect
-
-    broder = 10
-
-    mrz_bottom_y2 = mrz_bottom_rect[1][1]
-    mrz_bottom_y2 = (
-        mrz_bottom_y2 + broder if mrz_bottom_y2 + broder < height else height
-    )
-    mrz_bottom_x1 = mrz_s_rect[0][0] - broder if mrz_s_rect[0][0] - broder > 0 else 0
-
-    top_right_2_x = mrz_bottom_rect[1][0]  # 右下 右上2 x
-    top_right_2_x = top_right_2_x + broder if top_right_2_x + broder < width else width
-
-    mrz_top_y1 = mrz_top_rect[0][1] - broder  # mrz top y1
-
-    top_left_x = top_left_x - broder if top_left_x - broder > 0 else 0
-    top_y = top_y - broder if top_y - broder > 0 else 0
-    top_right_1_x = top_right_1_x + broder if top_right_1_x + broder < width else width
-
-    points = np.array(
-        [
-            [top_left_x, top_y],  # 左上
-            [top_right_1_x, top_y],  # 右上1
-            [top_right_2_x, top_y],  # 右上2
-            [top_right_2_x, mrz_bottom_y2],  # 右下
-            [mrz_bottom_x1, mrz_bottom_y2],  # 左下
-            [mrz_bottom_x1, mrz_top_y1],
-            [top_left_x, mrz_top_y1],
-        ],
-        dtype=np.int32,
-    )
-    # 重新调整维度
-    pts = points.reshape((-1, 1, 2))
-
-    # 在mask上绘制多边形
-    cv2.fillPoly(mask, [pts], (0))
-
-    # 把mask和原图进行“与”操作，得到遮罩部分的图像
-    res = cv2.bitwise_or(img, mask)
-
-    border = 10
-
-    res = res[
-        top_y:mrz_bottom_y2,
-        mrz_bottom_x1:top_right_2_x,
-    ]
-
-    if debug_mode:
-        print(f"有效数据图片大小：{res.shape}")
-
-    border = int(height * 0.05)
-    res = add_border_to_grayscale_image(res, border)
-
-    return res
+    if mrz_top.position[0][1] > mrz_bottom.position[0][1]:
+        temp = mrz_top
+        mrz_top = mrz_bottom
+        mrz_bottom = temp
+    
+    return mrz_top, mrz_bottom
 
 
 # 白底灰度图像边框加宽
@@ -515,94 +330,6 @@ def add_border_to_grayscale_image(image, border_size=10, border_color=255):
     background[y : y + image_height, x : x + image_width] = image
 
     return background
-
-
-# 基于哈希的字符串相似度检测
-def minhash_similarity(str1, str2, num_hashes=100):
-    # 定义哈希函数
-    def hash_function(x):
-        return hash(x)
-
-    # 生成哈希签名
-    def generate_minhash_signature(string, num_hashes):
-        signature = []
-        for i in range(num_hashes):
-            min_hash = float("inf")
-            for token in string:
-                hash_value = hash_function(str(i) + token)
-                if hash_value < min_hash:
-                    min_hash = hash_value
-            signature.append(min_hash)
-        return signature
-
-    # 计算相似度
-    def calculate_similarity(sig1, sig2):
-        intersection = len(set(sig1) & set(sig2))
-        union = len(set(sig1) | set(sig2))
-        similarity = intersection / union
-        return similarity
-
-    # 生成字符串的哈希签名
-    signature1 = generate_minhash_signature(str1, num_hashes)
-    signature2 = generate_minhash_signature(str2, num_hashes)
-
-    # 计算相似度
-    similarity = calculate_similarity(signature1, signature2)
-    return similarity
-
-
-# 获取数组中出现次数最多的值
-def get_most_common_elements(array):
-    counter = Counter(array)
-    most_common = counter.most_common(1)
-    return most_common[0][0] if most_common else None
-
-
-# 获取识别文字的位置信息
-def get_text_location(image):
-    try:
-        data = pytesseract.image_to_osd(image)
-    except pytesseract.pytesseract.TesseractError:
-        return None
-    # print(data)
-    # 从位置信息中提取文字方向
-    lines = data.split("\n")
-    angle = None
-    for line in lines:
-        if line.startswith("Orientation in degrees:"):
-            angle = float(line.split(":")[1].strip())
-            break
-
-    return angle
-
-
-def uniform_sampling(data, sample_size):
-    """
-    在一个数组中均匀抽取sample_size条数据
-    """
-    n = len(data)
-    if sample_size >= n:
-        return data
-    else:
-        step = n // sample_size
-        sampled_data = [data[i] for i in range(0, n, step)]
-        return sampled_data
-
-
-def rotate_key_word_check(data_list):
-    keys_count = 0
-
-    keys = ["visa", "date", "country", "p ", "jpn ", "japan"]
-
-    for data in data_list:
-        text = data.content
-
-        for key in keys:
-            if key in text.lower():
-                keys_count += 1
-
-    if keys_count / len(keys) > 0.3:
-        return True
 
 
 def rotated_image_by_angle(image, angle):
@@ -650,16 +377,22 @@ def _imshow(title, img, scale_percent=50):
 
 
 # 只返回指定高度以内的区域（max，min）
-def remove_small_height_regions(mask, img, max_height, min_height):
+def remove_small_height_regions(mask, img, max_height, min_height, be_binclo = True):
     # 对输入图像取反
     inverted_img = cv2.bitwise_not(img)
+
+
     # 膨胀操作
     kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 1))
     bin_clo = cv2.dilate(inverted_img, kernel2, iterations=2)
 
+    img_c = inverted_img
+    if be_binclo :
+        img_c = bin_clo
+
     # 获取所有连通区域的标签
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
-        bin_clo, connectivity=8
+        img_c, connectivity=8
     )
 
     # 遍历每个连通区域，计算它们的高度
@@ -670,7 +403,7 @@ def remove_small_height_regions(mask, img, max_height, min_height):
         x2 = stats[i, cv2.CC_STAT_LEFT] + stats[i, cv2.CC_STAT_WIDTH]
         y2 = stats[i, cv2.CC_STAT_TOP] + stats[i, cv2.CC_STAT_HEIGHT]
         # 高度设置大于指定值的区域
-        if height > min_height and height < max_height:
+        if height < max_height and height > min_height :
             cv2.rectangle(mask, (x1 - 1, y1 - 1), (x2 + 1, y2 + 1), 255, -1)
 
     return mask
@@ -705,16 +438,6 @@ def mask_fill_white(img, mask):
     result = cv2.add(img_fg, result)
 
     return result
-
-
-# 图片二值化，把白色部分设置为透明
-def binary_img_with_transparency(img, threshold=180):
-    # 将二值化后的图像转换为4通道图像
-    rgba = cv2.cvtColor(img, cv2.COLOR_GRAY2RGBA)
-
-    # 将白色部分设置为透明
-    rgba[:, :, 3] = np.where(img == 255, 0, 255)
-    return rgba
 
 
 def get_overlap_percentage(normal_rect, ocr_data_rect):
@@ -860,8 +583,8 @@ def get_month_number(abbreviation):
     """
     将3个字母的月份缩写转换为对应的月份数字
     """
-    if(abbreviation == 'JUI'):
-        abbreviation = 'JUL'
+    if abbreviation == "JUI":
+        abbreviation = "JUL"
     try:
         date_object = datetime.strptime(abbreviation, "%b")
         month_number = date_object.month
@@ -890,14 +613,19 @@ def clear_little_px(image):
     # 二值化处理
     _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
+    # 使用3x3的核进行膨胀操作
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    dilated = cv2.dilate(binary, kernel, iterations=1)
+
     # 查找轮廓
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
 
     # 绘制矩形轮廓
     new_contours = []
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        if w * h < 10 and h < 5:
+        if  h < 7:
             new_contours.append(contour)
 
     # 创建与原始图像相同大小的空白掩码
@@ -1194,6 +922,53 @@ def get_rotate(image):
     return temp_lines, binary
 
 
+def check_visa_type(data_list):
+    """
+    从OCR结果获取"中华人民共和国"所在行
+    """
+    befind_data = None
+    visa_data = None
+    visa_data_index = 0
+    visa_cnt = 0
+    patterns = [
+        r".*people.*",
+        r".*repub.*",
+        r".*public.*",
+        r".*of.*",
+        r".*china.*",
+    ]
+    for index, data in enumerate(data_list):
+        text = data.content
+        visa_cnt = 0
+
+        for pattern in patterns:
+            match = re.match(pattern, text.strip().lower())
+            if match:
+                visa_cnt += 1
+
+        if visa_cnt >= 3:
+            befind_data = data
+
+        if befind_data:
+            visa_data_index += 1
+            match = re.match(r".*visa.*", text.strip().lower())
+            if match:
+                visa_data = data
+                break
+
+            elif visa_data_index > 3:
+                raise ValueError(f"找到了签证类型为 {Visa.TYPE_NAME_MID} ，但是没有找到VISA。")
+
+    type = Visa.TYPE_NAME_MID
+    if befind_data:
+        print(f"visa行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}")
+    else:
+        type = Visa.TYPE_NAME_LEFT
+        print(f"visa行未命中率：{round(visa_cnt/len(patterns),2)}")
+
+    return type, visa_data
+
+
 def find_visa_line(data_list):
     """
     从OCR结果获取visa所在行
@@ -1228,62 +1003,6 @@ def find_visa_line(data_list):
     return befind_data
 
 
-def find_visano_title_line(data_list):
-    """
-    从OCR结果获取visano_title所在行
-    """
-    befind_data = None
-    visa_cnt = 0
-    patterns = [
-        r".*旅券 .*",
-        r".*Passp[oO0]rt.*",
-        r".*No.*",
-        r".*番号.*",
-        r".*ssuing.*",
-        r".*country.*",
-        r".*Type.*",
-        r".*発行.*",
-        r".*型.*",
-        r".*国.*",
-    ]
-    for data in data_list:
-        text = data.content
-        visa_cnt = 0
-
-        for pattern in patterns:
-            match = re.match(pattern, text.strip().upper())
-            if match:
-                visa_cnt += 1
-
-        if visa_cnt >= len(patterns) // 2:
-            befind_data = data
-
-    if befind_data:
-        print(
-            f"visano title行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}"
-        )
-    else:
-        print(f"visano title行未命中率：{round(visa_cnt/len(patterns),2)}")
-        return None
-
-    # 找到visano title的下一个矩形，就是visa关键字的矩形
-    min_h = 0
-    befind_data_y1 = befind_data.position[0][1]
-    for data in data_list:
-        rect = data.position
-
-        rect_y1 = rect[0][1]
-
-        if rect_y1 <= befind_data_y1:
-            continue
-
-        if min_h == 0 or rect_y1 - befind_data_y1 < min_h:
-            min_h = rect_y1 - befind_data_y1
-            befind_data = data
-
-    return befind_data
-
-
 def rotate_rectangle(x1, y1, x2, y2, angle):
     # 计算矩形的中心点坐标
     center_x = (x1 + x2) / 2
@@ -1310,7 +1029,7 @@ def rotate_rectangle(x1, y1, x2, y2, angle):
     return int(x1_rot), int(y1_rot), int(x2_rot), int(y2_rot)
 
 
-def find_visa_area(img):
+def find_visa_area(_visa: Visa, img):
     # 旋转图片，还原倾斜度 y1:y2 x1:x2
     lines, rotate_img = get_rotate(img)
 
@@ -1361,11 +1080,15 @@ def find_visa_area(img):
     mrz_1 = mrz_1.position
     mrz_2 = mrz_2.position
 
+    visa_type, visa_data = check_visa_type(data_list)
+    _visa.type = visa_type
+
     # visa
-    visa_data = find_visa_line(data_list)
+    if _visa.type == Visa.TYPE_NAME_LEFT:
+        visa_data = find_visa_line(data_list)
 
     if visa_data == None:
-        visa_data = find_visano_title_line(data_list)
+        raise ValueError("没有找到VISA所在行")
 
     mrz_t = mrz_1
     if mrz_t[0][0] < mrz_2[0][0]:
@@ -1385,6 +1108,28 @@ def find_visa_area(img):
     ]
 
     return cut_img
+
+
+def find_min_of_closest_range(arr, k):
+    """
+    对数组进行排序。
+    对于给定的组数大小k，遍历数组并找到范围最小的连续k个数字。
+    返回这组数字中的最小值。
+    """
+    if not arr or k > len(arr):
+        return None
+
+    arr.sort()
+    min_range = float("inf")
+    min_value = None
+
+    for i in range(len(arr) - k + 1):
+        current_range = arr[i + k - 1] - arr[i]
+        if current_range < min_range:
+            min_range = current_range
+            min_value = arr[i]
+
+    return min_value
 
 
 def set_to_dict(data):
@@ -1418,6 +1163,59 @@ def output_data2text_file(visa, _config_options: dict):
         json.dump(set_to_dict(visa.info), f, ensure_ascii=False)
 
 
+def clear_left_top(img):
+
+    '''
+    找到上方数据的边线，清理左边的区域
+    '''
+    data_list_word = ocr_by_key(img, "word", "num_1")
+
+    height, width = img.shape[:2]
+
+    mrz_top, mrz_bottom = find_mrz(height, data_list_word)
+
+    finded_mid_rect_x1_array = []
+    for i, data in enumerate(data_list_word):
+        rect = data.position
+        rect_x1 = rect[0][0]
+        rect_y1 = rect[0][1]
+
+        mrz1_x1 = mrz_top.position[0][0]
+        mrz1_x2 = mrz_top.position[1][0]
+        mrz1_y1 = mrz_top.position[0][1]
+
+        # 过滤出中间区域
+        if (
+            rect_x1 > mrz1_x1 and rect_x1 < mrz1_x1 + (mrz1_x2 - mrz1_x1) / 2
+        ) and rect_y1 < mrz1_y1:
+            finded_mid_rect_x1_array.append(rect[0][0])
+
+    clear_left_area_x2 = 0
+    if len(finded_mid_rect_x1_array) >= 3:
+        clear_left_area_x2 = find_min_of_closest_range(
+            finded_mid_rect_x1_array, int(len(finded_mid_rect_x1_array) / 2)
+        )
+    else:
+        raise ValueError("没有找到中心区域的边")
+
+    clear_left_area_y2 = mrz_top.position[0][1]
+
+    # 创建与原始图像大小相同的空白图像
+    mask = np.zeros_like(img)
+    # 在空白图像上绘制矩形区域为白色
+    cv2.rectangle(
+        mask,
+        (0, 0),
+        (clear_left_area_x2 - 5, clear_left_area_y2 - 5),
+        (255, 255, 255),
+        cv2.FILLED,
+    )
+    # 将矩形区域应用到原始图像上
+    img = cv2.bitwise_or(img, mask)
+
+    return img
+
+
 def main(visa: Visa, _config_options: dict):
     global config_options
 
@@ -1439,7 +1237,7 @@ def main(visa: Visa, _config_options: dict):
     # thresh = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2GRAY)
 
     # 截取护照
-    gray_image = find_visa_area(thresh)
+    gray_image = find_visa_area(visa, thresh)
 
     # 二值化图像
     _, binary = cv2.threshold(gray_image, 170, 255, cv2.THRESH_BINARY)
@@ -1475,12 +1273,16 @@ def main(visa: Visa, _config_options: dict):
     mask = np.zeros(img_mask.shape[:2], dtype=np.uint8)
 
     # 去除title top:bottom, left:right
-    mask = remove_small_height_regions(mask, img_mask, 30, 0)
+    mask = remove_small_height_regions(mask, img_mask, 30, 5)
 
     # 遮罩外涂白
     img = mask_fill_white(thresh, mask)
     img = clear_little_px(img)
     img = add_border_to_grayscale_image(img, 100)
+
+    # 找到上方数据的边线，清理左边的区域
+    img = clear_left_top(img)
+
     # OCR
     data_list = ocr_by_key(img, "word", "num_1")
 
@@ -1491,9 +1293,11 @@ def main(visa: Visa, _config_options: dict):
     # 存储OCR结果图片
     img_cv = rect_set(cut_img, data_list)
 
-    # plt.imsave("to_cv" + "\\" + visa.file_name + "_cv.png", img_cv)
-    # plt.imsave("to_cut" + "\\" + visa.file_name + "_cut.png", cut_img)
+    plt.imsave("to_cv" + "\\" + visa.file_name + "_cv.png", img_cv)
+    plt.imsave("to_cut" + "\\" + visa.file_name + "_cut.png", cut_img)
 
+
+    return 
     # 获取护照信息
     visa.info, data_list = datalist2info(visa, data_list, cut_img)
 

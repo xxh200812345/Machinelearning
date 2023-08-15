@@ -14,12 +14,15 @@ class VisaOCRAbstraction:
         self.config_options = self.config_readin()
 
     # 其他方法和属性
-    def passprocess(self, PdfInPath):
+    def visaprocess(self, PdfInPath):
 
         print(f"开始处理PDF :{PdfInPath}")
 
         # 使用PyMuPDF库将页面转换为图像
         pixs = pdf2img.pdf_page_to_image(f"{PdfInPath}")
+
+        if (len(pixs) < 2):
+            raise ValueError("不存在第二页，找不到签证")
 
         # 第二页是签证，其他的是护照
         _visa = Visa(PdfInPath , 1)

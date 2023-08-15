@@ -73,7 +73,7 @@ if __name__ == "__main__":
         start_time = time.time()
 
         print(f"正在处理： {index+1}， 共计 {len(pdf_files)}")
-        ret = oa.passprocess(PdfInPath)
+        ret = oa.visaprocess(PdfInPath)
 
         # 记录函数结束时间
         end_time = time.time()
