@@ -26,6 +26,9 @@ class Document:
         self.info = {}
         self.info["err_msg"] = ""
 
+        self.file_path = file_path
+        self.index = index
+
 
     # 图片存放位置
     image_dir = "images"

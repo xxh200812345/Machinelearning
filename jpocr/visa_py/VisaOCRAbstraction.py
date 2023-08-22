@@ -2,7 +2,6 @@ import visa_ocr
 
 import pdf2img
 import configparser
-from mvisa import Visa
 import os
 import sys
 import shutil
@@ -25,7 +24,7 @@ class VisaOCRAbstraction:
             raise ValueError("不存在第二页，找不到签证")
 
         # 第二页是签证，其他的是护照
-        _visa = Visa(PdfInPath , 1)
+        _visa = Document(PdfInPath , 1)
 
         output_dir = (
             self.config_options["OUTPUT_FOLDER_PATH"] + "/" + _visa.image_dir
@@ -72,10 +71,10 @@ class VisaOCRAbstraction:
             os.makedirs(config_options["OUTPUT_FOLDER_PATH"])  # 然后再创建它
 
         os.makedirs(
-            config_options["OUTPUT_FOLDER_PATH"] + "/" + Visa.image_dir
+            config_options["OUTPUT_FOLDER_PATH"] + "/" + Document.image_dir
         )  # 如果文件夹不存在，则创建它
         os.makedirs(
-            config_options["OUTPUT_FOLDER_PATH"] + "/" + Visa.json_dir
+            config_options["OUTPUT_FOLDER_PATH"] + "/" + Document.json_dir
         )  # 如果文件夹不存在，则创建它
 
         return config_options
