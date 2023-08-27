@@ -13,3 +13,4 @@ jpocr/passport_py/to_rotate/
 jpocr/visa_py/output/
 jpocr/visa_py/pdfs/
 jpocr/visa_py/to_*
+jpocr/visa_py/visa_ocr.log

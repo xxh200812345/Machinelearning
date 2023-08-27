@@ -3,10 +3,10 @@ import fitz
 from mdocument import Document
 
 # 遍历PDF页面并转换为图像
-def pdf_page_to_image(pdf_path, dpi=300):
+def pdf_page_to_image(pdf_path, logger, dpi=300):
     # 打开PDF文件
-    pdf_doc = fitz.open(pdf_path)
 
+    pdf_doc = fitz.open(pdf_path)
     pixs = []
 
     for page in pdf_doc:

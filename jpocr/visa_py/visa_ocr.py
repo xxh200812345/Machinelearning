@@ -7,7 +7,6 @@ import pyocr
 import pyocr.builders
 import cv2
 import platform
-from collections import Counter
 
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -15,20 +14,17 @@ import matplotlib.pyplot as plt
 import mvisa
 from mdocument import Document
 
-from datetime import datetime
-
-import pytesseract
 import os
 import re
 import difflib
 import json
 
-os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
+os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
 # 固定色阶
 def color_scale_display(img, Shadow=0, Highlight=255, Midtones=1):
-    """
+    '''
     用于图像预处理，模拟ps的色阶调整
     img：传入的图片
     Shadow：黑场(0-Highlight)
@@ -36,7 +32,7 @@ def color_scale_display(img, Shadow=0, Highlight=255, Midtones=1):
     Midtones：灰场(9.99-0.01)
     0 <= Shadow < Highlight <= 255
     返回一张图片
-    """
+    '''
     if Highlight > 255:
         Highlight = 255
     if Shadow < 0:
@@ -74,7 +70,7 @@ def set_tessract_app():
 # 初始化设置
 def init(visa: Document):
     global sample_img_path, sample_cut_img_path, sample_edited_img_path, sample_sign_img_path
-    global debug_mode, debug_font
+    global debug_mode, debug_font, logger
 
     input_dir = config_options["PDFS_FOLDER_PATH"]
     output_dir = config_options["OUTPUT_FOLDER_PATH"]
@@ -101,12 +97,11 @@ def init(visa: Document):
     else:
         print("ocr_configs.ini Debug value is ERROR!")
 
-
 def ocr_by_key(img, key, lang="num_1"):
-    """
+    '''
     key : line word
     lang : chi_sim jpn eng num_1
-    """
+    '''
     # ツール取得
     tool = pyocr.get_available_tools()[0]
 
@@ -134,8 +129,7 @@ def rect_set(img, data_list, font_size=16, color=(0, 0, 255)):
         rect = data.position
         text = data.content
 
-        if debug_mode:
-            print(f"{i}{text}   {rect}")
+        logger.info(f"{i}:\t{text}   {rect}")
 
         i += 1
 
@@ -171,9 +165,9 @@ def rect_set(img, data_list, font_size=16, color=(0, 0, 255)):
 
 
 def merge_rectangles(rect1, rect2):
-    """
+    '''
     合并矩形
-    """
+    '''
     x1 = min(rect1[0][0], rect2[0][0])
     y1 = min(rect1[0][1], rect2[0][1])
     x2 = max(rect1[1][0], rect2[1][0])
@@ -183,9 +177,9 @@ def merge_rectangles(rect1, rect2):
 
 
 def check_similarity(string, pattern, similarity_threshold=0.6):
-    """
+    '''
     相似度规则，并使用正则表达式模式进行匹配
-    """
+    '''
     similarity = difflib.SequenceMatcher(None, string, pattern).ratio()
     return similarity >= similarity_threshold
 
@@ -221,8 +215,7 @@ def find_mask_key_point_by_visa(visa_rect, words, img):
         rect = data.position
         text = data.content
 
-        if debug_mode:
-            print(f"{text}: {rect}")
+        logging.debug(f"{text}: {rect}")
 
         if "p" in text.strip().lower() and len(text) < 3 and rect[0][0] < width * 0.4:
             p_rect = data.position
@@ -270,7 +263,7 @@ def find_mask_key_point_by_visa(visa_rect, words, img):
                 visano_rect = visano_rect_temp
 
     if p_rect == None and visano_rect != None:
-        print("P关键字识别失败, 用jpn继续定位")
+        logger.info("P关键字识别失败, 用jpn继续定位")
         if jpn_rect != None:
             # x1,y1 x2,y2
             ((x1, y1), (x2, y2)) = jpn_rect
@@ -280,15 +273,15 @@ def find_mask_key_point_by_visa(visa_rect, words, img):
                 (x1 - (visano_rect[0][0] - x2), y2),
             )
         else:
-            print("jpn关键字识别失败")
+            logger.info("jpn关键字识别失败")
 
     return p_rect, visano_rect
 
 
 def find_mrz(height, lines):
-    """
+    '''
     找到MRZ码
-    """
+    '''
     dict_array = []
     for data in lines:
         rect = data.position
@@ -335,9 +328,9 @@ def add_border_to_grayscale_image(image, border_size=10, border_color=255):
 
 
 def rotated_image_by_angle(image, angle):
-    """
+    '''
     根据旋转角度旋转图片
-    """
+    '''
 
     # 获取图像尺寸
     height, width = image.shape[:2]
@@ -372,7 +365,6 @@ def _imshow(title, img, scale_percent=50):
     height = int(img.shape[0] * scale_percent / 100)
     resized_image = cv2.resize(img, (width, height))
 
-    # if debug_mode == True:
     cv2.imshow(title, resized_image)
     cv2.waitKey(0)  # 等待用户按下键盘上的任意键
     cv2.destroyAllWindows()  # 关闭所有cv2.imshow窗口
@@ -441,176 +433,10 @@ def mask_fill_white(img, mask):
 
     return result
 
-
-def get_overlap_percentage(normal_rect, ocr_data_rect):
-    """
-    判断orc数据是否在标准矩形区域内
-
-    参数:
-    - normal_rect: 一个包含四个元素的元组或列表，表示点的坐标 (x1, y1, x2, y2)
-    - ocr_data_rect: 一个包含四个元素的元组或列表，表示矩形的坐标 (x1, y1, x2, y2)
-
-    返回值:
-    - 如果点在矩形区域内，则返回 True，否则返回 False
-    """
-    normal_area = (normal_rect[1][0] - normal_rect[0][0]) * (
-        normal_rect[1][1] - normal_rect[0][1]
-    )  # 计算正常矩形的面积
-
-    intersection_x = max(
-        0,
-        min(normal_rect[1][0], ocr_data_rect[1][0])
-        - max(normal_rect[0][0], ocr_data_rect[0][0]),
-    )  # 计算交集的宽度
-    intersection_y = max(
-        0,
-        min(normal_rect[1][1], ocr_data_rect[1][1])
-        - max(normal_rect[0][1], ocr_data_rect[0][1]),
-    )  # 计算交集的高度
-    intersection_area = intersection_x * intersection_y  # 计算交集的面积
-
-    overlap_percentage = (intersection_area / normal_area) * 100  # 计算重叠的百分比
-
-    if overlap_percentage > 0.1:
-        return overlap_percentage
-    else:
-        return 0
-
-
-def check_len(ret, visa):
-    for title, key_len in visa.VISA_KEYS_LEN.items():
-        if key_len > 0 and len(ret[title]) != key_len:
-            ret["vs_info"][
-                title
-            ] = f"{mvisa.OUT_ERROR_TAG}: 实际长度{len(ret[title])}不等于预测长度{key_len}"
-        else:
-            ret["vs_info"][title] = ""
-
-
-def to_O(text):
-    text = text.replace("0", "O")
-    text = text.replace("1", "I")
-    return text
-
-
-def to_0(text):
-    text = text.replace("O", "0")
-    text = text.replace("I", "1")
-    return text
-
-
-def set_main_info(ret, visa):
-    main_info = ret["main_info"]
-    vs_info = ret["vs_info"]
-
-    main_info[visa.CATEGORY] = ret[visa.CATEGORY]
-    main_info[visa.ENTER_BEFORE] = to_O(ret[visa.ENTER_BEFORE])
-
-    tmp = visa.ENTER_BEFORE
-    if vs_info[tmp][:5] != mvisa.OUT_ERROR_TAG:
-        main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
-    else:
-        main_info[tmp] = ""
-
-    replace_chat = ["Q", "O", "o"]
-    temp_str = ret[visa.DURATION_OF_EACH_STAY]
-    for item in replace_chat:
-        temp_str = temp_str.replace(item, "0")
-    main_info[visa.DURATION_OF_EACH_STAY] = temp_str
-
-    tmp = visa.ISSUE_DATE
-    if vs_info[tmp][:5] != mvisa.OUT_ERROR_TAG:
-        main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
-    else:
-        main_info[tmp] = ""
-
-    main_info[visa.FULL_NAME] = to_O(ret[visa.FULL_NAME])
-
-    tmp = visa.BIRTH_DATE
-    if vs_info[tmp][:5] != mvisa.OUT_ERROR_TAG:
-        main_info[tmp] = to_0(ret[tmp][:2]) + to_O(ret[tmp][2:5]) + to_0(ret[tmp][-4:])
-    else:
-        main_info[tmp] = ""
-
-    tmp = visa.PASSPORT_NO
-    if vs_info[tmp][:5] != mvisa.OUT_ERROR_TAG:
-        main_info[tmp] = to_O(ret[tmp][:2]) + to_0(ret[tmp][2:])
-    else:
-        main_info[tmp] = ""
-
-
-def set_mrz_info(ret,visa):
-    mrz_info = ret["mrz_info"]
-    vs_info = ret["vs_info"]
-    foot1 = to_O(ret[visa.foot1])
-    foot2 = ret[visa.foot2]
-
-    if vs_info[visa.foot1][:5] != mvisa.OUT_ERROR_TAG:
-        for title, position in visa.VISA_MRZ1_POSITION.items():
-            if title == visa.FULL_NAME:
-                find_surname = foot1[position[0] :]
-                split_array = find_surname.split("<")
-                cleaned_array = [item for item in split_array if item]
-
-                if len(cleaned_array) >= 2:
-                    mrz_info[title] = f"{cleaned_array[1]}{cleaned_array[0]}"
-                else:
-                    mrz_info[title] = mvisa.OUT_ERROR_TAG + ": 没有找到姓名"
-
-            if title == visa.CATEGORY:
-                mrz_info[title] = foot1[position[0] : position[1]]
-    else:
-        for title, position in visa.VISA_MRZ1_POSITION.items():
-            mrz_info[title] = ""
-
-    if vs_info[visa.foot2][:5] != mvisa.OUT_ERROR_TAG:
-        for title, position in visa.VISA_MRZ2_POSITION.items():
-            tmp = foot2[position[0] : position[1]]
-
-            if title == visa.PASSPORT_NO:
-                mrz_info[title] = to_O(tmp[:2]) + to_0(tmp[2:])
-
-            if title == visa.BIRTH_DATE:
-                mrz_info[title] = to_0(tmp)
-
-            if title == visa.ENTER_BEFORE:
-                mrz_info[title] = to_0(tmp)
-
-    else:
-        for title, position in visa.VISA_MRZ1_POSITION.items():
-            mrz_info[title] = ""
-
-
-def get_month_number(abbreviation):
-    """
-    将3个字母的月份缩写转换为对应的月份数字
-    """
-    if abbreviation == "JUI":
-        abbreviation = "JUL"
-    try:
-        date_object = datetime.strptime(abbreviation, "%b")
-        month_number = date_object.month
-        return month_number
-    except ValueError:
-        return f"月份{abbreviation}转换错误"
-
-
-def add_error_to_info(info, error_msg):
-    """
-    追加对应的比较错误 info：vs_info[title]
-    """
-    if info[:5] != mvisa.OUT_ERROR_TAG:
-        info = mvisa.OUT_ERROR_TAG + ": " + error_msg
-    else:
-        info += ";" + error_msg
-
-    return info
-
-
 def clear_little_px(image):
-    """
+    '''
     清除独立小像素点
-    """
+    '''
 
     # 二值化处理
     _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -640,226 +466,11 @@ def clear_little_px(image):
     return result
 
 
-def set_vs_info(ret, visa):
-    main_info = ret["main_info"]
-    mrz_info = ret["mrz_info"]
-    vs_info = ret["vs_info"]
-
-    for title, mrz_item in mrz_info.items():
-        if title in main_info == False:
-            main_info[title] = f"main_info中不存在这个属性"
-            continue
-
-        if main_info[title][:5] == mvisa.OUT_ERROR_TAG:
-            error_msg = f"中间的信息项目存在错误"
-            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
-
-        elif mrz_info[title][:5] == mvisa.OUT_ERROR_TAG:
-            error_msg = f"MRZ的信息项目存在错误"
-            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
-
-        elif main_info == "":
-            error_msg = f"中间的信息项目没有值"
-            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
-
-        elif mrz_info == "":
-            error_msg = f"MRZ的信息项目没有值"
-            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
-
-        elif title == visa.ENTER_BEFORE or title == visa.BIRTH_DATE:
-            month_num = get_month_number(main_info[title][2:5])
-            if isinstance(month_num, str):
-                error_msg = month_num
-                vs_info[title] = add_error_to_info(vs_info[title], error_msg)
-            else:
-                main_item = (
-                    main_info[title][-2:]
-                    + str(month_num).zfill(2)
-                    + main_info[title][:2]
-                )
-                if main_item != mrz_item:
-                    error_msg = f"数据不一致"
-                    vs_info[title] = add_error_to_info(vs_info[title], error_msg)
-
-        elif main_info[title] != mrz_info[title]:
-            error_msg = f"数据不一致"
-            vs_info[title] = add_error_to_info(vs_info[title], error_msg)
-
-    return
-
-
-def rect_vs_box(rect, width, height):
-    """
-    矩形(x1,y1,x2,y2)数据不能超过设置范围
-    """
-
-    ((x1, y1), (x2, y2)) = rect
-
-    x1 = 0 if x1 < 0 else x1
-    y1 = 0 if y1 < 0 else y1
-    x2 = width if x2 > width else x2
-    y2 = height if y2 > height else y2
-
-    return (x1, y1, x2, y2)
-
-
-# 获取护照信息
-def datalist2info(visa, data_list, img):
-    ret = visa.info
-    ret["main_info"] = {}
-    ret["mrz_info"] = {}
-    ret["vs_info"] = {}
-
-    height, width = img.shape[:2]
-
-    ocr_texts = ""
-    for data in data_list:
-        # 文本
-        ocr_texts += f"{data.content} {data.position}\n"
-
-    ret["file_name"] = visa.file_name
-
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    ret["time"] = now_str
-
-    if len(data_list) != 13:
-        err_msg = "识别后文字信息行数不为13，有识别错误。"
-        ret["err_msg"] = add_error_to_info(ret["err_msg"], err_msg)
-
-    ret["ocr_texts"] = ocr_texts
-
-    error_vals = 0
-
-    # 通过Passport No确认位移
-    PassportNo_data = None
-    for data in data_list:
-        rect = data.position
-        text = data.content
-
-        pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
-        match = re.match(pattern, text.strip().lower())
-        if match:
-            PassportNo_data = data
-            break
-
-    x_offset = 0
-    y_offset = 0
-    if PassportNo_data:
-        ((x1, y1), (x2, y2)) = PassportNo_data.position
-        center_x = (x1 + x2) / 2
-        center_y = (y1 + y2) / 2
-
-        ((px1, py1), (px2, py2)) = visa.VISA_KEYS_POSITION[visa.PASSPORT_NO]
-        p_center_x = (px1 + px2) / 2
-        p_center_y = (py1 + py2) / 2
-
-        # 计算中心点之间的偏移量
-        x_offset = int(center_x - p_center_x)
-        y_offset = int(center_y - p_center_y)
-
-    for data in data_list:
-        text = data.content
-        ((x1, y1), (x2, y2)) = data.position
-
-        if PassportNo_data:
-            # 移动矩形的坐标
-            x1 = x1 - x_offset
-            y1 = y1 - y_offset
-            x2 = x2 - x_offset
-            y2 = y2 - y_offset
-
-        if len(text) <= 3:
-            x1 -= 30
-            x2 += 20
-
-        y1 -= 10
-        y2 += 10
-
-        x1, y1, x2, y2 = rect_vs_box(((x1, y1), (x2, y2)), width, height)
-
-        data.position = ((x1, y1), (x2, y2))
-
-    # MRZ
-    data_list_foots = [data for data in data_list if len(data.content) > 30]
-    if len(data_list_foots) == 2:
-        if data_list_foots[0].position[0][1] < data_list_foots[1].position[0][1]:
-            ret[visa.foot1] = data_list_foots[0].content
-            ret[visa.foot2] = data_list_foots[1].content
-        else:
-            ret[visa.foot1] = data_list_foots[1].content
-            ret[visa.foot2] = data_list_foots[0].content
-
-    else:
-        for data in data_list_foots:
-            text = data.content
-
-            pattern = r"V.*[<くぐ]{1}.*[<くぐ]{1}.*"
-            match = re.match(pattern, text.strip().upper())
-            if match:
-                ret[visa.foot1] = data.content
-
-            pattern = r"^[a-zA-Z]{0,3}\d{5,9}$"
-            match = re.match(pattern, text.strip().upper())
-            if match:
-                ret[visa.foot2] = data.content
-
-        if visa.foot1 not in ret or not ret[visa.foot1]:
-            ret[visa.foot1] = mvisa.OUT_ERROR_TAG + ": 没有找到数据."
-            error_vals += 1
-
-        if visa.foot2 not in ret or not ret[visa.foot2]:
-            ret[visa.foot2] = mvisa.OUT_ERROR_TAG + ": 没有找到数据."
-            error_vals += 1
-
-    for key, value in visa.VISA_KEYS_POSITION.items():
-        if "foot" in key:
-            continue
-
-        # 统计所有覆盖率
-        overlap_percentages = []
-        for data in data_list:
-            rect = data.position
-            text = data.content
-
-            overlap_percentage = get_overlap_percentage(value, rect)
-            if overlap_percentage != 0:
-                overlap_percentages.append((overlap_percentage, text))
-
-        # 找到覆盖率最大的值
-        if len(overlap_percentages) != 0:
-            max_overlap_percentage = 0
-            max_overlap_text = ""
-            for overlap_percentage, text in overlap_percentages:
-                if overlap_percentage > max_overlap_percentage:
-                    max_overlap_percentage = overlap_percentage
-                    max_overlap_text = text
-            ret[key] = max_overlap_text
-
-        if key not in ret:
-            ret[key] = mvisa.OUT_ERROR_TAG + ": 没有找到数据."
-            error_vals += 1
-
-    if error_vals > 0:
-        err_msg = f"一共有{error_vals}个数据没有找到对应值。"
-        ret["err_msg"] = add_error_to_info(ret["err_msg"], err_msg)
-
-    # 根据基础信息生成三个对象，对象main_info保存护照主要信息，对象mrz_info保存下方mrz分解后的信息，对象vs_info保存对比信息
-    check_len(ret, visa)
-    set_main_info(ret, visa)
-    set_mrz_info(ret, visa)
-    set_vs_info(ret, visa)
-
-    print(f"err_msg:{ret['err_msg']}")
-
-    visa.info = ret
-
-    return data_list
-
 
 def fill_middle_with_white(image, style):
-    """
+    '''
     把图片的上下部分涂白
-    """
+    '''
 
     # 获取图像的尺寸
     height, width = image.shape[:2]
@@ -927,12 +538,10 @@ def get_rotate(image):
 
 
 def check_visa_type(data_list):
-    """
+    '''
     从OCR结果获取"中华人民共和国"所在行
-    """
+    '''
     befind_data = None
-    visa_data = None
-    visa_data_index = 0
     visa_cnt = 0
     patterns = [
         r".*people.*",
@@ -953,38 +562,24 @@ def check_visa_type(data_list):
         if visa_cnt >= 3:
             befind_data = data
 
-        if befind_data:
-            visa_data_index += 1
-            match = re.match(r".*visa.*", text.strip().lower())
-            if match:
-                visa_data = data
-                break
-
-            elif visa_data_index > 3:
-                print(f"找到了签证类型为 {mvisa.TYPE_NAME_MID} ，但是没有找到VISA。")
-                break
-
     type = mvisa.TYPE_NAME_MID
     if befind_data:
-        print(f"visa行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}")
+        logger.info(f"中华人民共和国 行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}")
     else:
         type = mvisa.TYPE_NAME_LEFT
-        print(f"visa行未命中率：{round(visa_cnt/len(patterns),2)}")
+        logger.info(f"中华人民共和国 行未命中率：{round(visa_cnt/len(patterns),2)}")
 
     visa_data_y1 = None
     if type == mvisa.TYPE_NAME_MID:
-        if visa_data :
-            visa_data_y1 = visa_data.position[1][1]
-        else:
-            visa_data_y1 = befind_data.position[1][1] + 50
+        visa_data_y1 = befind_data.position[1][1] + 50
 
     return type, visa_data_y1
 
 
 def find_visa_line(data_list):
-    """
+    '''
     从OCR结果获取visa所在行
-    """
+    '''
     befind_data = None
     visa_cnt = 0
     patterns = [
@@ -1009,10 +604,10 @@ def find_visa_line(data_list):
 
     befind_data_y1 = None
     if befind_data:
-        print(f"visa行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}")
+        logger.info(f"visa行命中率：{round(visa_cnt/len(patterns),2)},{befind_data.content}")
         befind_data_y1 = befind_data.position[1][1]
     else:
-        print(f"visa行未命中率：{round(visa_cnt/len(patterns),2)}")
+        logger.info(f"visa行未命中率：{round(visa_cnt/len(patterns),2)}")
 
     return befind_data_y1
 
@@ -1090,9 +685,9 @@ def find_visa_area(_visa: Document, img):
             mrz_2 = data
 
     if mrz_1:
-        print(f"mrz_1: {mrz_1.content},{mrz_1.position}")
+        logger.info(f"mrz_1: {mrz_1.content},{mrz_1.position}")
     if mrz_2:
-        print(f"mrz_2: {mrz_2.content},{mrz_2.position}")
+        logger.info(f"mrz_2: {mrz_2.content},{mrz_2.position}")
 
     mrz_1 = mrz_1.position
     mrz_2 = mrz_2.position
@@ -1105,7 +700,8 @@ def find_visa_area(_visa: Document, img):
         visa_data_y1 = find_visa_line(data_list)
 
     if visa_data_y1 == None:
-        raise ValueError("没有找到VISA所在行")
+        logger.error("没有找到VISA所在行")
+        raise ValueError("")
 
     mrz_t = mrz_1
     if mrz_t[0][0] < mrz_2[0][0]:
@@ -1128,11 +724,11 @@ def find_visa_area(_visa: Document, img):
 
 
 def find_min_of_closest_range(arr, k):
-    """
+    '''
     对数组进行排序。
     对于给定的组数大小k，遍历数组并找到范围最小的连续k个数字。
     返回这组数字中的最小值。
-    """
+    '''
     if not arr or k > len(arr):
         return None
 
@@ -1213,7 +809,8 @@ def clear_left_top(img):
             finded_mid_rect_x1_array, int(len(finded_mid_rect_x1_array) / 2)
         )
     else:
-        raise ValueError("没有找到中心区域的边")
+        logger.error("没有找到中心区域的边")
+        raise ValueError("")
 
     clear_left_area_y2 = mrz_top.position[0][1]
 
@@ -1305,7 +902,7 @@ def main(visa: Document, _config_options: dict):
     # OCR
     data_list = ocr_by_key(img, "word", "num_1")
     # for data in data_list:
-    #     print(data)
+    #     logger.info(data)
     cut_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     # 存储OCR结果图片
@@ -1316,19 +913,24 @@ def main(visa: Document, _config_options: dict):
     # img_cv = cut_img
     plt.imsave(sample_edited_img_path, img_cv)
 
-
     # 获取护照信息
-    data_list = datalist2info(visa, data_list, cut_img)
+    data_list = visa.datalist2info(data_list, cut_img)
+    logger.info(f"err_msg:{visa.info['err_msg']}")
     # 识别后数据输出到文本文件中
     output_data2text_file(visa, config_options)
 
-def run(visa: Document, _config_options: dict):
-    main(visa, _config_options)
-    # try:
-    #     main(visa, _config_options)
-    # except Exception as e:
-    #     # 捕获异常并打印错误信息
-    #     print(f"发生错误 {visa.file_name}:", str(e))
+def run(visa: Document, _config_options: dict, _logger):
+    global logger
 
-    #     ret = visa.info
-    #     ret["err_msg"] = add_error_to_info(ret["err_msg"], str(e))
+    logger = _logger
+
+    # main(visa, _config_options)
+    try:
+        main(visa, _config_options)
+    except Exception as e:
+        # 捕获异常并打印错误信息
+        logger.info(f"发生错误 {visa.file_name}:", str(e))
+
+        ret = visa.info
+        ret["err_msg"] = mvisa.add_error_to_info(ret["err_msg"], str(e))
+
